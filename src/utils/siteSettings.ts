@@ -18,6 +18,11 @@ export interface ResolvedSiteSettings {
   copyrightText: string;
   starterMenu?: SystemSettings['starterMenu'];
   adminPasswordHash?: string;
+  adminRecoveryEmail?: string;
+  adminSecurityQuestion?: string;
+  adminSecurityAnswerHash?: string;
+  siteLockEnabled: boolean;
+  siteLockPinHash?: string;
 }
 
 export const DEFAULT_SITE_SETTINGS: ResolvedSiteSettings = {
@@ -38,6 +43,7 @@ export const DEFAULT_SITE_SETTINGS: ResolvedSiteSettings = {
   footerDescription:
     'বাংলাদেশের সকল রেস্তোরাঁ, হোটেল, বিরিয়ানি হাউজ, ক্যাফে, মিষ্টি ও ফাস্টফুড শপের জন্য আধুনিক ও দ্রুত ডিজিটাল বিলিং সফটওয়্যার।',
   copyrightText: '© ২০২৬ RestaurantHisab (রেস্তোরাঁহিসাব) - সর্বস্বত্ব সংরক্ষিত।',
+  siteLockEnabled: false,
 };
 
 export function sanitizeLogoUrl(rawUrl?: string): string {
@@ -93,6 +99,19 @@ export function mergeSystemSettings(raw?: Partial<SystemSettings> | null): Resol
     starterMenu: source.starterMenu,
     adminPasswordHash: typeof source.adminPasswordHash === 'string' && source.adminPasswordHash.trim()
       ? source.adminPasswordHash.trim()
+      : undefined,
+    adminRecoveryEmail: typeof source.adminRecoveryEmail === 'string' && source.adminRecoveryEmail.trim()
+      ? source.adminRecoveryEmail.trim().toLowerCase()
+      : undefined,
+    adminSecurityQuestion: typeof source.adminSecurityQuestion === 'string' && source.adminSecurityQuestion.trim()
+      ? source.adminSecurityQuestion.trim()
+      : undefined,
+    adminSecurityAnswerHash: typeof source.adminSecurityAnswerHash === 'string' && source.adminSecurityAnswerHash.trim()
+      ? source.adminSecurityAnswerHash.trim()
+      : undefined,
+    siteLockEnabled: Boolean(source.siteLockEnabled),
+    siteLockPinHash: typeof source.siteLockPinHash === 'string' && source.siteLockPinHash.trim()
+      ? source.siteLockPinHash.trim()
       : undefined,
   };
 }

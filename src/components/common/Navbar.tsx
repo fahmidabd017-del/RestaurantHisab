@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   Bell,
   Sparkles,
+  Lock,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -27,6 +28,8 @@ interface NavbarProps {
   adminNotificationCount?: number;
   onToggleAiChat?: () => void;
   onToggleMobileSidebar?: () => void;
+  onOpenSiteLock?: () => void;
+  isEntryLockActive?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -37,6 +40,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   adminNotificationCount = 0,
   onToggleAiChat,
   onToggleMobileSidebar,
+  onOpenSiteLock,
+  isEntryLockActive = false,
 }) => {
   const { restaurant, isAdmin, logoutRestaurant, logoutAdmin } = useAuth();
   const { settings } = useSiteSettings();
@@ -184,6 +189,31 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <Sparkles className="w-3.5 h-3.5 text-orange-400" />
                 <span className="hidden sm:inline">এআই সহকারী</span>
+              </button>
+            )}
+
+            {/* Website Screen Lock button (4-digit PIN) */}
+            {onOpenSiteLock && (
+              <button
+                type="button"
+                data-testid="navbar-lock-btn"
+                onClick={onOpenSiteLock}
+                className={`relative flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#111927] border font-bold text-xs hover:bg-[#151E2E] transition-all shadow-xs cursor-pointer whitespace-nowrap ${
+                  isEntryLockActive
+                    ? 'border-emerald-500/60 text-emerald-300 hover:border-emerald-400'
+                    : 'border-amber-500/40 text-amber-300 hover:border-amber-400'
+                }`}
+                title={
+                  isEntryLockActive
+                    ? 'প্রবেশ লক চালু আছে — ক্লিক করে এখনই লক বা পিন পরিবর্তন করুন'
+                    : 'সর্বোচ্চ ৪ ডিজিটের পিন দিয়ে ওয়েবসাইট লক করুন'
+                }
+              >
+                <Lock className={`w-3.5 h-3.5 ${isEntryLockActive ? 'text-emerald-400' : 'text-amber-400'}`} />
+                <span className="hidden sm:inline">{isEntryLockActive ? 'লক চালু' : 'লক'}</span>
+                {isEntryLockActive && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                )}
               </button>
             )}
 
@@ -456,11 +486,26 @@ export const Navbar: React.FC<NavbarProps> = ({
                   setMobileMenuOpen(false);
                   logoutAdmin();
                 }}
-                className="block w-full text-left px-3 py-2 rounded-lg text-rose-400 hover:bg-rose-950/40"
+                className="flex items-center gap-2 w-full text-left px-3 py-2 rounded-lg text-rose-400 hover:bg-rose-950/40"
               >
-                অ্যাডমিন প্রস্থান
+                <LogOut className="w-4 h-4" />
+                <span>অ্যাডমিন প্রস্থান</span>
               </button>
             </>
+          )}
+
+          {onOpenSiteLock && (
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onOpenSiteLock();
+              }}
+              className="flex items-center justify-center gap-2 w-full py-2.5 mt-2 rounded-lg border border-amber-500/40 bg-[#111927] text-amber-300 font-bold text-xs cursor-pointer"
+            >
+              <Lock className="w-4 h-4 text-amber-400" />
+              <span>ওয়েবসাইট লক করুন (৪ ডিজিট পিন)</span>
+            </button>
           )}
         </div>
       )}

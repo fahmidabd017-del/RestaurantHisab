@@ -71,6 +71,16 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
       const passwordHash = await hashString(password);
       const securityAnswerHash = await hashString(securityAnswer.trim().toLowerCase());
 
+      let ownerUid = '';
+      try {
+        const { createUserWithEmailAndPassword } = await import('firebase/auth');
+        const { auth } = await import('../../firebase/config');
+        const cred = await createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
+        ownerUid = cred.user.uid;
+      } catch {
+        // Non-fatal: Email/Password provider may not be enabled in Firebase Console yet
+      }
+
       const newRest = await registerRestaurant({
         name: name.trim(),
         ownerName: ownerName.trim(),
@@ -80,6 +90,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
         passwordHash,
         securityQuestion: finalQuestion,
         securityAnswerHash,
+        ownerUid,
       });
 
       if (includeStarterMenu) {

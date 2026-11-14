@@ -114,6 +114,11 @@ export interface SystemSettings {
   footerDescription?: string;
   copyrightText?: string;
   adminPasswordHash?: string;
+  adminRecoveryEmail?: string;
+  adminSecurityQuestion?: string;
+  adminSecurityAnswerHash?: string;
+  siteLockEnabled?: boolean;
+  siteLockPinHash?: string;
 }
 
 export interface Announcement {

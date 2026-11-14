@@ -93,14 +93,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('এই ইমেইল দিয়ে কোনো রেস্তোরাঁ পাওয়া যায়নি। অনুগ্রহ করে সঠিক ইমেইল দিন।');
     }
 
-    const isValid = await verifyHash(password, existing.passwordHash);
-    if (!isValid) {
-      throw new Error('ভুল পাসওয়ার্ড! অনুগ্রহ করে পুনরায় চেষ্টা করুন।');
+    const normEmail = email.trim().toLowerCase();
+    const isHashValid = await verifyHash(password, existing.passwordHash);
+    let finalRestaurant = existing;
+
+    if (!isHashValid) {
+      let firebaseVerified = false;
+      let firebaseUid = existing.ownerUid || '';
+
+      try {
+        const { signInWithEmailAndPassword } = await import('firebase/auth');
+        const cred = await signInWithEmailAndPassword(auth, normEmail, password);
+        firebaseVerified = true;
+        firebaseUid = cred.user.uid;
+      } catch {
+        // Invalid password or Firebase Auth Email/Password not enabled
+      }
+
+      if (!firebaseVerified) {
+        throw new Error('ভুল পাসওয়ার্ড! অনুগ্রহ করে পুনরায় চেষ্টা করুন।');
+      }
+
+      // User reset password via Firebase Auth email link: sync new passwordHash & ownerUid to Firestore
+      try {
+        const { updateRestaurant } = await import('../services/db');
+        const newHash = await hashString(password);
+        await updateRestaurant(existing.id, {
+          passwordHash: newHash,
+          ownerUid: firebaseUid || existing.ownerUid || '',
+        });
+        finalRestaurant = {
+          ...existing,
+          passwordHash: newHash,
+          ownerUid: firebaseUid || existing.ownerUid || '',
+        };
+      } catch {
+        // Non-fatal sync error
+      }
     }
 
-    setRestaurant(existing);
-    localStorage.setItem('restauranthisab_restaurant_id', existing.id);
-    return existing;
+    setRestaurant(finalRestaurant);
+    localStorage.setItem('restauranthisab_restaurant_id', finalRestaurant.id);
+    return finalRestaurant;
   };
 
   const loginWithGoogle = async () => {
@@ -136,14 +170,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginAdmin = async (password: string): Promise<boolean> => {
     localStorage.removeItem('restauranthisab_admin_hash');
     const customHash = localStorage.getItem('restauranthisab_admin_hash_v2');
-    const dbSettings = customHash ? null : await getSystemSettings().catch(() => null);
-    const targetHash = customHash || dbSettings?.adminPasswordHash || DEFAULT_ADMIN_HASH;
+    const dbSettings = await getSystemSettings().catch(() => null);
+    const targetHash = dbSettings?.adminPasswordHash || customHash || DEFAULT_ADMIN_HASH;
 
     // Cryptographic hash verification only - no plain text stored in code
     const computedHash = await hashString(password);
     const isHashMatch = computedHash === targetHash;
 
     if (isHashMatch) {
+      if (dbSettings?.adminPasswordHash) {
+        localStorage.setItem('restauranthisab_admin_hash_v2', dbSettings.adminPasswordHash);
+      }
       setIsAdmin(true);
       sessionStorage.setItem('restauranthisab_admin_auth', 'true');
       return true;

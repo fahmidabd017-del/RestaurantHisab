@@ -24,6 +24,15 @@ import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AnnouncementBanner } from './components/common/AnnouncementBanner';
 import { RestaurantSidebar } from './components/common/RestaurantSidebar';
 import { AiChatbotModal } from './components/ai/AiChatbotModal';
+import { SiteLockModal } from './components/common/SiteLockModal';
+import { SiteLockScreen } from './components/common/SiteLockScreen';
+import {
+  SITE_LOCK_STORAGE_KEY,
+  SITE_LOCK_TIME_KEY,
+  resolveActiveLockHash,
+  shouldShowSiteLockScreen,
+} from './utils/screenLock';
+import { parseFirebaseResetParams } from './utils/passwordRecovery';
 import { Sparkles } from 'lucide-react';
 import { getAdminNotifications } from './services/db';
 
@@ -38,7 +47,23 @@ function MainApp() {
   const [isForgotPassOpen, setIsForgotPassOpen] = useState(false);
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isSiteLockModalOpen, setIsSiteLockModalOpen] = useState(false);
+  const [resetOobCode, setResetOobCode] = useState<string | null>(null);
+  const [localLockHash, setLocalLockHash] = useState<string>(() => {
+    return localStorage.getItem(SITE_LOCK_STORAGE_KEY) || '';
+  });
+  // In-memory unlock state ONLY for the current visit: exiting/reloading re-locks automatically!
+  const [unlockedPinHash, setUnlockedPinHash] = useState<string>('');
   const [aiInitialPrompt, setAiInitialPrompt] = useState<string | undefined>(undefined);
+
+  // Detect Firebase Auth password reset link parameters on mount
+  useEffect(() => {
+    const parsed = parseFirebaseResetParams(window.location.search);
+    if (parsed) {
+      setResetOobCode(parsed.oobCode);
+      setIsForgotPassOpen(true);
+    }
+  }, []);
 
   // Admin unread notifications count
   const [adminNotifCount, setAdminNotifCount] = useState(0);
@@ -81,6 +106,52 @@ function MainApp() {
     }
   }, [isAdmin, currentView]);
 
+  const activeLockHash = resolveActiveLockHash(
+    localLockHash,
+    settings.siteLockEnabled,
+    settings.siteLockPinHash
+  );
+  const isSiteLocked = shouldShowSiteLockScreen(activeLockHash, unlockedPinHash);
+
+  const handleLockConfirmed = (pinHash: string) => {
+    localStorage.setItem(SITE_LOCK_STORAGE_KEY, pinHash);
+    localStorage.setItem(SITE_LOCK_TIME_KEY, new Date().toISOString());
+    setLocalLockHash(pinHash);
+    setUnlockedPinHash('');
+    setIsSiteLockModalOpen(false);
+    setIsMobileSidebarOpen(false);
+    setIsAiChatOpen(false);
+  };
+
+  const handleLockNowExisting = () => {
+    setUnlockedPinHash('');
+    setIsSiteLockModalOpen(false);
+    setIsMobileSidebarOpen(false);
+    setIsAiChatOpen(false);
+  };
+
+  const handleDisableLocalLock = () => {
+    localStorage.removeItem(SITE_LOCK_STORAGE_KEY);
+    localStorage.removeItem(SITE_LOCK_TIME_KEY);
+    setLocalLockHash('');
+    setUnlockedPinHash('');
+    setIsSiteLockModalOpen(false);
+  };
+
+  const handleUnlockWebsite = () => {
+    // Unlock only for the current in-memory visit; keep saved PIN hash so re-entering locks again!
+    setUnlockedPinHash(activeLockHash);
+  };
+
+  if (isSiteLocked) {
+    return (
+      <SiteLockScreen
+        storedHash={activeLockHash}
+        onUnlock={handleUnlockWebsite}
+      />
+    );
+  }
+
   return (
     <div
       className={`min-h-screen bg-[#0B0F17] text-white flex flex-col font-sans transition-colors ${
@@ -98,6 +169,7 @@ function MainApp() {
           isMobileOpen={isMobileSidebarOpen}
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
           onToggleAiChat={() => setIsAiChatOpen(prev => !prev)}
+          onOpenSiteLock={() => setIsSiteLockModalOpen(true)}
         />
       )}
 
@@ -113,6 +185,8 @@ function MainApp() {
         adminNotificationCount={adminNotifCount}
         onToggleAiChat={() => setIsAiChatOpen(prev => !prev)}
         onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
+        onOpenSiteLock={() => setIsSiteLockModalOpen(true)}
+        isEntryLockActive={Boolean(activeLockHash)}
       />
 
       {/* Main Content Area */}
@@ -253,9 +327,20 @@ function MainApp() {
 
       <ForgotPasswordModal
         isOpen={isForgotPassOpen}
-        onClose={() => setIsForgotPassOpen(false)}
+        initialOobCode={resetOobCode}
+        onClearOobCode={() => {
+          setResetOobCode(null);
+          if (window.location.search) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        }}
+        onClose={() => {
+          setIsForgotPassOpen(false);
+          setResetOobCode(null);
+        }}
         onSuccessLogin={() => {
           setIsForgotPassOpen(false);
+          setResetOobCode(null);
           setIsLoginOpen(true);
         }}
       />
@@ -287,6 +372,17 @@ function MainApp() {
           setIsAiChatOpen(false);
           setAiInitialPrompt(undefined);
         }}
+      />
+
+      {/* Website Lock Modal (Max 4-Digit PIN) */}
+      <SiteLockModal
+        isOpen={isSiteLockModalOpen}
+        hasExistingLocalLock={Boolean(localLockHash)}
+        hasGlobalLock={Boolean(settings.siteLockEnabled && settings.siteLockPinHash)}
+        onClose={() => setIsSiteLockModalOpen(false)}
+        onLockConfirmed={handleLockConfirmed}
+        onLockNowExisting={handleLockNowExisting}
+        onDisableLocalLock={handleDisableLocalLock}
       />
     </div>
   );

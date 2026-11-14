@@ -22,6 +22,12 @@ import { hashString } from '../../utils/crypto';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
 import { DEFAULT_SITE_SETTINGS } from '../../utils/siteSettings';
 import { resizeLogoFileToDataUrl } from '../../utils/imageResize';
+import {
+  MAX_LOCK_PIN_LENGTH,
+  hashLockPin,
+  sanitizeLockPinInput,
+  validateLockPin,
+} from '../../utils/screenLock';
 import { BrandLogo } from '../common/BrandLogo';
 import { TopAccentBar } from '../common/TopAccentBar';
 import {
@@ -45,6 +51,9 @@ import {
   MapPin,
   Image as ImageIcon,
   X,
+  Lock,
+  Unlock,
+  KeyRound,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -54,7 +63,7 @@ interface AdminDashboardProps {
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   initialSubTab = 'dashboard',
 }) => {
-  const { settings, updateSiteSettings } = useSiteSettings();
+  const { settings, isLoading: isSettingsLoading, updateSiteSettings } = useSiteSettings();
   const [subTab, setSubTab] = useState(initialSubTab);
 
   useEffect(() => {
@@ -111,10 +120,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [confirmAdminPass, setConfirmAdminPass] = useState('');
   const [adminPassMsg, setAdminPassMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Admin recovery settings state
+  const [recoveryEmailInput, setRecoveryEmailInput] = useState(
+    settings.adminRecoveryEmail || settings.supportEmail
+  );
+  const [adminSecQuestionInput, setAdminSecQuestionInput] = useState(
+    settings.adminSecurityQuestion || ''
+  );
+  const [adminSecAnswerInput, setAdminSecAnswerInput] = useState('');
+  const [recoverySettingsMsg, setRecoverySettingsMsg] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+
+  // Global 4-digit entry lock settings state
+  const [globalLockPinInput, setGlobalLockPinInput] = useState('');
+  const [globalLockMsg, setGlobalLockMsg] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+
+  const hasSyncedInitialSettingsRef = useRef(false);
   const todayStr = getBangladeshDateString();
 
-  // Keep inputs synced when settings load initially from Firestore
+  // Populate inputs once when settings first load from Firestore (never overwrite unsaved edits)
   useEffect(() => {
+    if (isSettingsLoading || hasSyncedInitialSettingsRef.current) return;
+    hasSyncedInitialSettingsRef.current = true;
     setSiteNameInput(settings.siteName);
     setSiteTaglineInput(settings.siteTagline);
     setSiteBadgeInput(settings.siteBadge);
@@ -130,7 +162,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setBkashInput(settings.bkashNumber || '01734211584');
     setNagadInput(settings.nagadNumber || '01734211584');
     setTrialDaysInput(String(settings.trialDays || 30));
-  }, [settings]);
+    setRecoveryEmailInput(settings.adminRecoveryEmail || settings.supportEmail);
+    setAdminSecQuestionInput(settings.adminSecurityQuestion || '');
+  }, [settings, isSettingsLoading]);
 
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
     setToastMsg({ text, type });
@@ -167,20 +201,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const todayRegistrations = restaurants.filter(r => r.createdAt && r.createdAt.startsWith(todayStr)).length;
   const pendingPayments = payments.filter(p => p.status === 'PENDING').length;
 
-  // Logo upload handler (resized client-side to WebP/PNG data URI)
+  // Logo upload handler (resized client-side to WebP/PNG data URI & persisted immediately)
   const handleLogoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
       const compressedDataUrl = await resizeLogoFileToDataUrl(file, 220);
       setLogoUrlInput(compressedDataUrl);
-      showToast('লোগো প্রিভিউ প্রস্তুত হয়েছে! সংরক্ষণ করতে "ব্র্যান্ডিং ও তথ্য সংরক্ষণ করুন" বাটনে ক্লিক করুন।', 'success');
+      await updateSiteSettings({ logoUrl: compressedDataUrl });
+      setBrandingSuccess(true);
+      showToast('নতুন লোগো সফলভাবে আপলোড ও ওয়েবসাইটে প্রকাশিত হয়েছে!', 'success');
+      setTimeout(() => setBrandingSuccess(false), 3500);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'লোগো আপলোড করতে সমস্যা হয়েছে।', 'error');
     } finally {
       if (logoFileRef.current) {
         logoFileRef.current.value = '';
       }
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    setLogoUrlInput('');
+    try {
+      await updateSiteSettings({ logoUrl: '' });
+      showToast('লোগো মুছে ডিফল্ট আইকন সক্রিয় করা হয়েছে।', 'success');
+    } catch {
+      showToast('লোগো মুছতে সমস্যা হয়েছে।', 'error');
     }
   };
 
@@ -384,6 +431,109 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setTimeout(() => setAdminPassMsg(null), 4000);
     } catch (err) {
       setAdminPassMsg({ type: 'error', text: 'পাসওয়ার্ড পরিবর্তনে সমস্যা হয়েছে।' });
+    }
+  };
+
+  const handleSaveAdminRecoverySettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRecoverySettingsMsg(null);
+
+    const trimmedEmail = recoveryEmailInput.trim().toLowerCase();
+    const trimmedQuestion = adminSecQuestionInput.trim();
+    const trimmedAnswer = adminSecAnswerInput.trim().toLowerCase();
+
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      setRecoverySettingsMsg({ type: 'error', text: 'সঠিক রিকভারি ইমেইল ঠিকানা দিন।' });
+      return;
+    }
+
+    if (trimmedQuestion && !trimmedAnswer && !settings.adminSecurityAnswerHash) {
+      setRecoverySettingsMsg({
+        type: 'error',
+        text: 'নিরাপত্তা প্রশ্ন সেট করতে তার উত্তরও লিখুন।',
+      });
+      return;
+    }
+
+    try {
+      const updates: {
+        adminRecoveryEmail: string;
+        adminSecurityQuestion?: string;
+        adminSecurityAnswerHash?: string;
+      } = {
+        adminRecoveryEmail: trimmedEmail,
+      };
+
+      if (trimmedQuestion) {
+        updates.adminSecurityQuestion = trimmedQuestion;
+      }
+      if (trimmedAnswer) {
+        updates.adminSecurityAnswerHash = await hashString(trimmedAnswer);
+      }
+
+      await updateSiteSettings(updates);
+      setAdminSecAnswerInput('');
+      setRecoverySettingsMsg({
+        type: 'success',
+        text: 'অ্যাডমিন রিকভারি ইমেইল ও নিরাপত্তা প্রশ্ন সফলভাবে সংরক্ষিত হয়েছে!',
+      });
+      setTimeout(() => setRecoverySettingsMsg(null), 4000);
+    } catch {
+      setRecoverySettingsMsg({
+        type: 'error',
+        text: 'রিকভারি তথ্য সংরক্ষণে সমস্যা হয়েছে।',
+      });
+    }
+  };
+
+  const handleSaveGlobalEntryLock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setGlobalLockMsg(null);
+
+    const validation = validateLockPin(globalLockPinInput);
+    if (!validation.valid) {
+      setGlobalLockMsg({
+        type: 'error',
+        text: validation.error || 'সর্বোচ্চ ৪ ডিজিটের সংখ্যার পিন দিন।',
+      });
+      return;
+    }
+
+    try {
+      const pinHash = await hashLockPin(validation.normalizedPin);
+      await updateSiteSettings({
+        siteLockEnabled: true,
+        siteLockPinHash: pinHash,
+      });
+      setGlobalLockPinInput('');
+      setGlobalLockMsg({
+        type: 'success',
+        text: 'গ্লোবাল প্রবেশ লক চালু হয়েছে! এখন থেকে ওয়েবসাইটে ঢোকা ও পুনরায় প্রবেশের সময় এই পিন চাইবে।',
+      });
+    } catch {
+      setGlobalLockMsg({
+        type: 'error',
+        text: 'গ্লোবাল লক চালু করতে সমস্যা হয়েছে।',
+      });
+    }
+  };
+
+  const handleDisableGlobalEntryLock = async () => {
+    setGlobalLockMsg(null);
+    try {
+      await updateSiteSettings({
+        siteLockEnabled: false,
+        siteLockPinHash: '',
+      });
+      setGlobalLockMsg({
+        type: 'success',
+        text: 'গ্লোবাল প্রবেশ লক বন্ধ করা হয়েছে।',
+      });
+    } catch {
+      setGlobalLockMsg({
+        type: 'error',
+        text: 'গ্লোবাল লক বন্ধ করতে সমস্যা হয়েছে।',
+      });
     }
   };
 
@@ -920,7 +1070,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {logoUrlInput && (
                   <button
                     type="button"
-                    onClick={() => setLogoUrlInput('')}
+                    onClick={handleRemoveLogo}
                     className="px-2.5 py-2 rounded-xl bg-[#0B0F17] border border-slate-700 hover:border-rose-600 text-slate-300 hover:text-rose-300 text-xs font-semibold cursor-pointer"
                   >
                     মুছুন
@@ -1258,6 +1408,161 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 >
                   অ্যাডমিন পাসওয়ার্ড পরিবর্তন করুন
                 </button>
+              </form>
+            </div>
+
+            {/* Admin Password Recovery Setup Card */}
+            <div className="relative overflow-hidden bg-[#0E1524] rounded-2xl border border-slate-800 shadow-xl p-6 space-y-3">
+              <TopAccentBar variant="blue" />
+              <div className="relative z-10">
+                <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
+                  <KeyRound className="w-4 h-4 text-blue-400" />
+                  অ্যাডমিন পাসওয়ার্ড রিকভারি সেটআপ
+                </h4>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  পাসওয়ার্ড ভুলে গেলে Google যাচাই বা নিরাপত্তা প্রশ্নের মাধ্যমে সহজেই রিসেট করতে পারবেন।
+                </p>
+              </div>
+
+              {recoverySettingsMsg && (
+                <div
+                  className={`p-2.5 rounded-xl border text-xs flex items-center gap-2 relative z-10 ${
+                    recoverySettingsMsg.type === 'success'
+                      ? 'bg-emerald-950/60 text-emerald-200 border-emerald-700'
+                      : 'bg-rose-950/60 text-rose-200 border-rose-700'
+                  }`}
+                >
+                  {recoverySettingsMsg.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                  ) : (
+                    <XCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  )}
+                  <span>{recoverySettingsMsg.text}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveAdminRecoverySettings} className="space-y-3 relative z-10">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    রিকভারি ইমেইল (Google অ্যাকাউন্ট ইমেইল) *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={recoveryEmailInput}
+                    onChange={e => setRecoveryEmailInput(e.target.value)}
+                    placeholder="your-email@gmail.com"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-[#0B0F17] text-white text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    অ্যাডমিন নিরাপত্তা প্রশ্ন (ঐচ্ছিক)
+                  </label>
+                  <input
+                    type="text"
+                    value={adminSecQuestionInput}
+                    onChange={e => setAdminSecQuestionInput(e.target.value)}
+                    placeholder="যেমন: আপনার প্রিয় খাবারের নাম কী?"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-[#0B0F17] text-white text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    নিরাপত্তা প্রশ্নের উত্তর{' '}
+                    {settings.adminSecurityAnswerHash ? '(পরিবর্তন করতে লিখুন)' : ''}
+                  </label>
+                  <input
+                    type="text"
+                    value={adminSecAnswerInput}
+                    onChange={e => setAdminSecAnswerInput(e.target.value)}
+                    placeholder="উত্তর লিখুন"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-[#0B0F17] text-white text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-sm transition-all cursor-pointer"
+                >
+                  রিকভারি তথ্য সংরক্ষণ করুন
+                </button>
+              </form>
+            </div>
+
+            {/* Global Website Entry Lock Card (Max 4 Digits) */}
+            <div className="relative overflow-hidden bg-[#0E1524] rounded-2xl border border-slate-800 shadow-xl p-6 space-y-3">
+              <TopAccentBar variant="amber" />
+              <div className="relative z-10 flex items-start justify-between gap-2">
+                <div>
+                  <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
+                    <Lock className="w-4 h-4 text-amber-400" />
+                    গ্লোবাল ওয়েবসাইট প্রবেশ লক (১–৪ ডিজিট)
+                  </h4>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    সকল ডিভাইসে ওয়েবসাইটে ঢোকার পর এবং বেরিয়ে পুনরায় ঢোকার সময় এই পিন চাইবে।
+                  </p>
+                </div>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                    settings.siteLockEnabled && settings.siteLockPinHash
+                      ? 'bg-emerald-950/80 border border-emerald-700 text-emerald-300'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  {settings.siteLockEnabled && settings.siteLockPinHash ? 'চালু' : 'বন্ধ'}
+                </span>
+              </div>
+
+              {globalLockMsg && (
+                <div
+                  className={`p-2.5 rounded-xl border text-xs flex items-center gap-2 relative z-10 ${
+                    globalLockMsg.type === 'success'
+                      ? 'bg-emerald-950/60 text-emerald-200 border-emerald-700'
+                      : 'bg-rose-950/60 text-rose-200 border-rose-700'
+                  }`}
+                >
+                  {globalLockMsg.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                  ) : (
+                    <XCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  )}
+                  <span>{globalLockMsg.text}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveGlobalEntryLock} className="space-y-3 relative z-10">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    নতুন প্রবেশ পিন (সর্বোচ্চ ৪ ডিজিট) *
+                  </label>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={MAX_LOCK_PIN_LENGTH}
+                    value={globalLockPinInput}
+                    onChange={e => setGlobalLockPinInput(sanitizeLockPinInput(e.target.value))}
+                    placeholder="যেমন: ১২৩৪"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-[#0B0F17] text-white text-xs font-mono tracking-[0.35em] focus:ring-2 focus:ring-amber-500 focus:outline-none placeholder:tracking-normal"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-sm transition-all cursor-pointer"
+                  >
+                    {settings.siteLockEnabled ? 'নতুন পিন আপডেট করুন' : 'প্রবেশ লক চালু করুন'}
+                  </button>
+                  {settings.siteLockEnabled && (
+                    <button
+                      type="button"
+                      onClick={handleDisableGlobalEntryLock}
+                      className="px-3 py-2.5 rounded-xl border border-rose-800/70 bg-rose-950/40 hover:bg-rose-950/70 text-rose-300 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                    >
+                      <Unlock className="w-3.5 h-3.5" />
+                      <span>বন্ধ করুন</span>
+                    </button>
+                  )}
+                </div>
               </form>
             </div>
           </div>

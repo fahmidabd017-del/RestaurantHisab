@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Clock,
   X,
+  Lock,
 } from 'lucide-react';
 
 interface RestaurantSidebarProps {
@@ -24,6 +25,7 @@ interface RestaurantSidebarProps {
   isMobileOpen: boolean;
   onCloseMobile: () => void;
   onToggleAiChat?: () => void;
+  onOpenSiteLock?: () => void;
 }
 
 export const RestaurantSidebar: React.FC<RestaurantSidebarProps> = ({
@@ -32,6 +34,7 @@ export const RestaurantSidebar: React.FC<RestaurantSidebarProps> = ({
   isMobileOpen,
   onCloseMobile,
   onToggleAiChat,
+  onOpenSiteLock,
 }) => {
   const { restaurant, logoutRestaurant } = useAuth();
   const { settings } = useSiteSettings();
@@ -261,6 +264,19 @@ export const RestaurantSidebar: React.FC<RestaurantSidebarProps> = ({
 
         {/* SIDEBAR FOOTER */}
         <div className="p-3.5 border-t border-slate-800 bg-[#0E1524] shrink-0 space-y-2">
+          {onOpenSiteLock && (
+            <button
+              type="button"
+              onClick={() => {
+                onCloseMobile();
+                onOpenSiteLock();
+              }}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-amber-500/40 bg-[#111927] hover:bg-[#151E2E] text-amber-300 font-extrabold text-xs transition-colors cursor-pointer"
+            >
+              <Lock className="w-4 h-4 text-amber-400" />
+              <span>ওয়েবসাইট লক করুন (পিন)</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={logoutRestaurant}
