@@ -1,0 +1,6 @@
+{
+  "name": "RestaurantHisab - রেস্তোরাঁহিসাব",
+  "description": "Professional Restaurant Billing & Management Web Application for Bangladesh. Multi-restaurant billing, dine-in fast invoicing, Bengali PDF receipts, bKash/Nagad lifetime activation, and dashboard.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

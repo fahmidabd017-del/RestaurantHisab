@@ -1,0 +1,1019 @@
+# MASTER PROMPT: RestaurantHisab
+## Professional Restaurant Billing & Management Web Application
+
+### 1. Project Overview
+
+You are an expert Product Architect, UI/UX Designer, Full-Stack Web Developer, Database Engineer and Cybersecurity Engineer.
+
+Your task is to design and develop a complete, professional, production-ready web-based Restaurant Billing & Management Software named **RestaurantHisab**.
+
+RestaurantHisab will be a multi-restaurant billing platform designed for Bangladesh. It will allow hotel, restaurant, fast-food shop, biryani shop, tea stall, bakery, sweet shop and other food-business owners to register and manage their billing operations through a web browser.
+
+The application must be fully functional, secure, modern, fast, responsive and easy to use.
+
+**Main objective:** Anyone in Bangladesh should be able to visit the RestaurantHisab website, register an account and start managing their restaurant billing operations.
+
+This must be a real working software application, not merely a static design, UI prototype or demonstration.
+
+---
+
+# 2. Website Identity & Design
+
+**Website Name:** RestaurantHisab
+
+**Website Category:** Restaurant Billing & Management System
+
+**Target Country:** Bangladesh
+
+**Default Language:** Bengali (বাংলা)
+
+**Default Currency:** Bangladeshi Taka (৳ BDT)
+
+### Design Requirements
+
+- Create a beautiful, modern and professional interface.
+- All menus, buttons, labels, dashboards, notifications and forms must be in Bengali.
+- Support Light Mode and Dark Mode.
+- Users can switch between Light and Dark Mode.
+- Use a clean, attractive and professional layout.
+- Make navigation extremely simple.
+- Use readable Bengali typography.
+- Display properly on Android mobile browsers and desktop/laptop browsers.
+- Use responsive layouts for different screen sizes.
+- Optimize loading speed and performance.
+
+The application must work through a web browser only.
+
+Do not create a separate Android application or desktop application.
+
+---
+
+# 3. Multi-Restaurant Account System
+
+RestaurantHisab will support unlimited restaurant registrations, subject to available hosting and database resources.
+
+Any restaurant owner can register independently.
+
+Each restaurant must have its own private account and separate database records.
+
+### Registration Form
+
+Collect the following information:
+
+1. Restaurant Name
+2. Owner Name
+3. Restaurant Address
+4. Mobile Number
+5. Email Address
+6. Password
+
+After completing registration:
+
+- The account will activate automatically.
+- No email verification will be required.
+- No Super Admin approval will be required.
+- A 30-day free trial will begin immediately.
+
+### Login System
+
+Restaurant owners will log in using:
+
+- Email Address
+- Password
+
+Password requirements:
+
+- Minimum 6 characters.
+
+### Account Management
+
+Restaurant owners can:
+
+- Change their password.
+- Update restaurant name.
+- Update owner name.
+- Update restaurant address.
+- Update mobile number.
+
+Changing the registered email address will not be permitted.
+
+### Security Question & Answer
+
+During registration, each owner must create:
+
+- Their own Security Question.
+- Their own Security Answer.
+
+When a user forgets their password:
+
+1. Enter the registered email address.
+2. Display that account's previously created security question.
+3. Ask the user to provide the correct answer.
+4. Verify the answer.
+5. Allow the user to create a new password.
+
+No email OTP or password-reset link will be required for this recovery method.
+
+Security answers must never be stored as readable plain text. Apply secure hashing, attempt limits and protection against automated guessing.
+
+### Multiple Device Support
+
+- One restaurant account can be used on Android mobile and computers.
+- Unlimited simultaneous device sessions are allowed.
+- All devices must access the same restaurant account.
+- Data must synchronize through the online database.
+- No separate employee accounts will be created.
+- Restaurant owners and their employees will share the same email and password.
+
+Only one restaurant can be managed through one account.
+
+There will be no multi-branch management system.
+
+### Account Deletion
+
+Restaurant owners can permanently delete their own accounts.
+
+Before deletion:
+
+- Display a clear confirmation warning.
+- Require password confirmation.
+- Delete the account and its associated restaurant data permanently.
+
+Deleted accounts must not be recoverable through the normal application.
+
+---
+
+# 4. Online-Only System
+
+RestaurantHisab must be an online-only application.
+
+Requirements:
+
+- Internet connection is mandatory.
+- No offline billing functionality.
+- No offline database.
+- No offline synchronization system.
+- All data will be stored in an online database.
+- Changes must be saved automatically.
+- Data must remain available when users log in from another device.
+
+Use secure server-side database operations.
+
+The application must never rely exclusively on browser Local Storage for permanent billing records.
+
+---
+
+# 5. Free Trial & Lifetime Payment System
+
+Every newly registered restaurant will receive a 30-day completely free trial.
+
+The free trial starts immediately after successful registration.
+
+During the trial period, all restaurant features will be available.
+
+### Free Trial Notifications
+
+Display warnings on the restaurant Dashboard:
+
+- 7 days before expiry.
+- 3 days before expiry.
+- 1 day before expiry.
+
+Notifications must appear only inside the website Dashboard.
+
+Do not send these notifications through email.
+
+### Lifetime Access Payment
+
+After the 30-day trial expires, the restaurant owner must make a one-time payment to obtain Lifetime Access.
+
+**Initial Payment Amount: ৳250 BDT**
+
+Payment Methods:
+
+1. bKash – Send Money
+2. Nagad – Send Money
+
+Initial payment number:
+
+**01734211584**
+
+The same initial number will be displayed for both payment methods, subject to the Super Admin's configuration.
+
+There will be:
+
+- No monthly subscription.
+- No annual subscription.
+- No recurring payment.
+- No additional lifetime renewal fee.
+
+After successful approval, the restaurant receives permanent Lifetime Access.
+
+### Payment Submission Form
+
+Create a professional payment submission interface containing:
+
+1. Payment Method (bKash/Nagad)
+2. Payment Number
+3. Payment Amount
+4. Transaction ID
+5. Submit Payment Request button
+
+Transaction ID must be mandatory.
+
+The restaurant owner will send the required amount to the displayed payment number and submit the Transaction ID.
+
+### Payment Verification System
+
+All payment applications will be reviewed manually by the Super Admin.
+
+Payment statuses:
+
+- Pending
+- Approved
+- Rejected
+
+When a payment request is submitted:
+
+1. Store the application in the database.
+2. Mark it as Pending.
+3. Notify the Super Admin.
+4. Display its status to the restaurant owner.
+
+The Super Admin will verify the transaction against the relevant payment-provider transaction record.
+
+Only after successful verification can Lifetime Access be activated.
+
+Do not pretend that a transaction has been automatically verified without an actual provider integration or manual verification.
+
+### Duplicate Transaction Protection
+
+Transaction IDs must be globally unique across all restaurant accounts.
+
+If a user submits an already-used Transaction ID:
+
+- Prevent the submission.
+- Display a Duplicate Transaction ID warning.
+- Do not create another valid payment application.
+
+### Rejected Payment
+
+If the Super Admin finds an invalid Transaction ID:
+
+- Reject the payment application.
+- Save the rejection reason.
+- Display Rejected status in the restaurant Dashboard.
+- Display the rejection reason.
+
+The restaurant owner can submit a new application using the correct Transaction ID.
+
+### After Free Trial Expiry
+
+If the free trial expires without an approved payment:
+
+- The owner can still log in.
+- All regular restaurant-management features will be locked.
+- The owner cannot create bills.
+- The owner cannot manage menus.
+- The owner cannot use regular billing features.
+- The payment and account-status page must remain accessible.
+- The owner can submit a lifetime payment request.
+
+---
+
+# 6. Super Admin Payment Settings
+
+The Super Admin must be able to manage payment configurations from the Admin Panel.
+
+The following settings must be editable:
+
+- Lifetime Access payment amount.
+- bKash payment number.
+- Nagad payment number.
+- Free trial duration.
+
+The initial settings must be:
+
+- Lifetime Access Fee: ৳250
+- bKash: 01734211584
+- Nagad: 01734211584
+- Free Trial: 30 days
+
+These are configurable initial values, not permanently hard-coded settings.
+
+Existing payment requests must retain the payment amount that was displayed when the request was created.
+
+---
+
+# 7. Restaurant Food & Category Management
+
+Every restaurant owner must be able to manage their own food menu independently.
+
+### Food Category Management
+
+Restaurant owners can:
+
+- Create categories.
+- Rename categories.
+- Delete categories.
+- View all categories.
+
+Examples:
+
+- ভাত
+- বিরিয়ানি
+- মাছ
+- মাংস
+- ফাস্টফুড
+- পানীয়
+- চা
+- মিষ্টি
+
+### Food Management
+
+Restaurant owners can:
+
+- Add new foods.
+- Edit food names.
+- Change food prices.
+- Delete foods.
+- View all foods.
+- Organize foods by category.
+
+Adding a food requires only:
+
+1. Food Name
+2. Food Price
+
+Food images and descriptions are not required.
+
+Every restaurant can independently determine its food names and prices.
+
+The system may offer an optional common starter food catalogue, but importing it must not restrict a restaurant owner's ability to customize their own menu.
+
+### Food Pricing
+
+- Each food will have one fixed price.
+- No Small/Medium/Large size variations.
+- No additional food add-ons.
+- No extra ingredient pricing.
+- Restaurant owners can determine their own prices.
+
+### Inventory
+
+Do not create an Inventory Management System.
+
+Do not include:
+
+- Raw material stock.
+- Food stock.
+- Ingredient tracking.
+- Stock alerts.
+- Inventory reports.
+
+---
+
+# 8. Direct Restaurant Billing System
+
+Create a fast and professional billing interface.
+
+There will be no table management system.
+
+There will be no table numbers, reserved tables or occupied-table management.
+
+The billing flow will be direct dine-in billing.
+
+Do not create separate takeaway or home-delivery order workflows.
+
+### Food Selection Interface
+
+Display food categories.
+
+When a user selects a category, show the corresponding food items as large, attractive buttons.
+
+Food buttons must display:
+
+- Food Name
+- Food Price
+
+### Food Selection Behaviour
+
+When the user clicks a food button:
+
+- Add one unit of that food to the bill.
+
+When the same food button is clicked again:
+
+- Increase its quantity by one.
+- Do not create a separate duplicate line.
+
+### Quantity Controls
+
+Provide:
+
+- Plus (+) button.
+- Minus (-) button.
+- Direct numerical quantity input.
+
+Quantity must never become zero or negative while an item remains in the bill.
+
+### Bill Calculation
+
+For every item:
+
+Item Total = Unit Price × Quantity
+
+Grand Total = Sum of all item totals.
+
+The calculation must update automatically whenever the quantity changes.
+
+---
+
+# 9. Customer Information
+
+Customer Name will be mandatory when creating a bill.
+
+Customer mobile number will not be required.
+
+No customer name means no bill confirmation.
+
+Customer name must appear in the final receipt.
+
+---
+
+# 10. Payment Method System
+
+Every bill must require a payment-method selection.
+
+All the following methods must always be available:
+
+1. Cash
+2. bKash
+3. Nagad
+4. Rocket
+5. Bank
+6. Card
+
+All payment methods must remain enabled for every restaurant.
+
+Restaurant owners cannot disable these methods.
+
+### Payment Rules
+
+- Only one payment method per bill.
+- Split payments are not allowed.
+- Partial payments are not allowed.
+- Unpaid bills are not allowed.
+- Every confirmed bill is automatically marked Paid.
+
+---
+
+# 11. Discount, VAT & Service Charge
+
+Do not include any discount feature.
+
+Do not include:
+
+- Percentage discounts.
+- Fixed-amount discounts.
+- VAT.
+- Service Charge.
+
+The final bill must be calculated using only the selected food prices and quantities.
+
+All amounts must be displayed in Bangladeshi Taka (৳).
+
+---
+
+# 12. Bill Preview, Editing & Confirmation
+
+After selecting food items and entering customer/payment information:
+
+Display a complete bill preview.
+
+Provide three main actions:
+
+1. Preview
+2. Edit
+3. Confirm Bill
+
+The restaurant owner must review the bill before confirming it.
+
+After confirmation:
+
+- Generate the Invoice Number.
+- Save the finalized bill.
+- Mark it Paid.
+- Display the completed digital receipt.
+- Make PDF downloading available.
+
+### Automatic Saving
+
+Every change must be automatically saved to the online database.
+
+Draft billing information must survive:
+
+- Browser closure.
+- Accidental page refresh.
+- Navigation away from the page.
+- Temporary internet interruption before the next successful save.
+
+Only a confirmed bill should count as a completed sale.
+
+---
+
+# 13. Invoice Number System
+
+Every invoice must receive an automatically generated date-based Invoice Number.
+
+Required format:
+
+YYYYMMDD-001
+
+Example:
+
+- 20261109-001
+- 20261109-002
+- 20261109-003
+
+The sequence must restart at 001 for each new date, separately for each restaurant.
+
+Invoice numbers must never accidentally duplicate.
+
+Use an atomic database operation to generate numbers safely when multiple devices create bills simultaneously.
+
+When an existing bill is edited, its original Invoice Number must remain unchanged.
+
+---
+
+# 14. Digital Receipt & PDF System
+
+The application will provide digital receipts only.
+
+No thermal printer integration or physical printing functionality is required.
+
+### Receipt Information
+
+Every receipt must include:
+
+1. Restaurant Name
+2. Restaurant Address
+3. Restaurant Mobile Number
+4. Customer Name
+5. Invoice Number
+6. Invoice Date
+7. Food Name
+8. Quantity
+9. Unit Price
+10. Item Total
+11. Grand Total
+12. Payment Method
+13. Paid Status
+14. RestaurantHisab Website Name
+
+### Receipt Design
+
+Create a clean, elegant and professional digital receipt.
+
+The restaurant's own logo must not be displayed.
+
+Do not add VAT, Service Charge or Discount.
+
+Display the invoice date but do not display the invoice creation time.
+
+Display RestaurantHisab as text branding on the receipt.
+
+### PDF Features
+
+- Generate high-quality PDF receipts.
+- Allow PDF download.
+- Preserve Bengali text correctly in generated PDFs.
+- Use proper Bengali font embedding.
+- Ensure the PDF displays correctly on Android and computers.
+
+WhatsApp sharing is not required.
+
+---
+
+# 15. Bill History System
+
+Create a separate Bill History page.
+
+Restaurant owners must be able to:
+
+- View all previously created bills.
+- Search bills by date.
+- Open bill details.
+- Download previous bills as PDF.
+
+### Bill Editing
+
+A restaurant owner can edit any previous bill at any time.
+
+There is no editing deadline.
+
+Editing a bill must:
+
+- Preserve the original Invoice Number.
+- Recalculate item totals.
+- Recalculate the Grand Total.
+- Update the saved bill.
+
+### Bill Cancellation
+
+A restaurant owner can cancel any previous bill at any time.
+
+Before cancellation:
+
+- Show a clear confirmation dialog.
+
+After confirmation:
+
+- Permanently delete that bill.
+- Do not keep it in a Cancelled Bills list.
+- Remove it from the restaurant's sales calculations.
+
+Cancelled bills must not count toward daily sales.
+
+---
+
+# 16. Restaurant Owner Dashboard
+
+Create a clean and professional dashboard.
+
+Display only the following three primary statistics:
+
+1. Today's Total Sales
+2. Today's Total Bills
+3. Today's Customer Count
+
+### Dashboard Rules
+
+- Only confirmed bills count.
+- Cancelled and deleted bills do not count.
+- Daily sales must be calculated using the Bangladesh local date.
+- Customer count should represent distinct customer names in today's confirmed bills.
+
+Do not create unnecessary financial reports.
+
+The following features are not required:
+
+- Monthly sales dashboard.
+- Weekly sales dashboard.
+- Annual sales dashboard.
+- Expense management.
+- Profit and loss calculation.
+- Inventory reports.
+
+Bill History will remain available separately.
+
+---
+
+# 17. Super Admin System
+
+There will be exactly one Super Admin.
+
+No additional Admin or Sub Admin accounts will exist.
+
+### Super Admin Login
+
+The Super Admin will log in using only a password.
+
+Do not require:
+
+- Admin email.
+- Admin username.
+- Admin PIN.
+- OTP.
+
+Use a dedicated and protected Admin login route.
+
+The initial Admin password must be configured securely during deployment or through a protected initial setup process.
+
+Never place the Admin password directly inside publicly accessible source code.
+
+### Admin Dashboard
+
+Display:
+
+1. Total Registered Restaurants
+2. Total Registered Users/Accounts
+3. Today's New Registrations
+
+### Restaurant Directory
+
+Super Admin can view the following information for every registered restaurant:
+
+- Restaurant Name
+- Owner Name
+- Address
+- Mobile Number
+- Email Address
+- Registration Date
+
+### Admin Permissions
+
+The Super Admin can:
+
+- View all registered restaurant accounts.
+- View restaurant registration information.
+- View overall registration statistics.
+- Manage website settings.
+- Manage payment settings.
+- Manage the optional common food catalogue.
+- Review lifetime payment applications.
+- Approve payment applications.
+- Reject payment applications.
+- Provide rejection reasons.
+
+### Important Admin Restrictions
+
+The Super Admin cannot:
+
+- View individual restaurant bills.
+- View customer billing information.
+- View individual restaurant sales.
+- View restaurant financial details.
+- Suspend restaurant accounts.
+- Permanently delete restaurant accounts.
+
+Restaurant billing information must remain private.
+
+Restaurant owners themselves control their own account deletion.
+
+---
+
+# 18. Super Admin Notifications
+
+The Super Admin Dashboard must display notifications for exactly these two primary events:
+
+1. New Restaurant Registration.
+2. New Lifetime Payment Application.
+
+Display a notification count.
+
+When a new event occurs, update the notification interface.
+
+The Admin should be able to open the relevant registration or payment application.
+
+Payment application statuses must be visible in the payment-management section.
+
+---
+
+# 19. Data Privacy & Database Isolation
+
+This is a multi-tenant application.
+
+Each restaurant's information must remain completely separate.
+
+Implement proper tenant isolation.
+
+Requirements:
+
+- A restaurant can only access its own billing records.
+- A restaurant cannot access another restaurant's information.
+- Restaurant IDs must be validated server-side.
+- Users must not be able to modify another restaurant's data by changing API requests.
+- Every billing record must be associated with the correct restaurant account.
+- Payment transaction uniqueness must be enforced at database level.
+
+The Super Admin may view registration and payment information as specified above, but must not have access to individual restaurant invoices or sales records.
+
+---
+
+# 20. Security Requirements
+
+Security is extremely important.
+
+Implement:
+
+- Secure password hashing using a modern password-hashing algorithm.
+- Secure user authentication.
+- Secure session management.
+- HTTPS support.
+- Server-side authorization.
+- Protection against SQL injection.
+- Protection against XSS.
+- CSRF protection where applicable.
+- Rate limiting for login and recovery attempts.
+- Secure database queries.
+- Input validation and sanitization.
+- Secure file generation.
+- Protection against unauthorized API access.
+- Secure environment-variable configuration.
+- Strong tenant isolation.
+
+The Admin login uses password-only authentication as specified, so apply a strong password policy recommendation, strict attempt limits, protected sessions and brute-force protection.
+
+Security question answers must be hashed securely.
+
+Do not expose secrets, database credentials or payment-management credentials in the frontend.
+
+---
+
+# 21. Technical Architecture
+
+Build a complete full-stack web application.
+
+Preferred technology:
+
+**Frontend**
+- Next.js or an equivalent modern React framework.
+- TypeScript.
+- Tailwind CSS.
+- Responsive component architecture.
+
+**Backend**
+- Secure server-side API.
+- Proper authentication and authorization.
+- Business logic isolated from the UI.
+
+**Database**
+- PostgreSQL or an equivalent relational database.
+- Proper database relationships.
+- Database transactions for invoice numbers and payment verification.
+- Unique constraints for emails and transaction IDs.
+
+**PDF**
+- Bengali-compatible PDF generation.
+- Proper Bengali font support.
+
+Choose stable, maintainable technologies.
+
+Do not create a frontend-only application with simulated database records.
+
+---
+
+# 22. Database Entities
+
+Create a properly normalized database structure containing appropriate entities such as:
+
+- Restaurants
+- Restaurant Users
+- Authentication Sessions
+- Security Questions
+- Food Categories
+- Food Items
+- Billing Drafts
+- Invoices
+- Invoice Items
+- Payment Applications
+- Payment Verification Records
+- Website Settings
+- Admin Settings
+- Notification Records
+
+Use appropriate foreign keys, indexes, unique constraints and database-level validation.
+
+Ensure that deleted restaurant accounts and deleted bills are handled according to the specified deletion rules.
+
+---
+
+# 23. Required Application Pages
+
+Create the following pages:
+
+### Public Website
+1. Homepage
+2. About RestaurantHisab
+3. Features
+4. Pricing & Lifetime Access
+5. Registration
+6. Login
+7. Forgot Password
+8. Contact/Support
+
+### Restaurant Dashboard
+1. Dashboard
+2. New Bill
+3. Bill Preview
+4. Bill History
+5. Bill Details
+6. Food Categories
+7. Food Management
+8. Restaurant Profile
+9. Change Password
+10. Security Question Settings
+11. Payment & Lifetime Access
+12. Payment History
+13. Account Deletion
+
+### Super Admin Panel
+1. Admin Login
+2. Admin Dashboard
+3. Restaurant Directory
+4. Restaurant Details
+5. Payment Applications
+6. Payment Verification
+7. Website Settings
+8. Payment Settings
+9. Free Trial Settings
+10. Food Catalogue Settings
+11. Admin Notifications
+
+All navigation labels must be in Bengali.
+
+---
+
+# 24. Required Quality Standards
+
+The completed website must:
+
+- Look like a professional commercial software product.
+- Have no broken buttons.
+- Have no non-functional menus.
+- Have no fake data presented as real customer data.
+- Have no placeholder billing functions.
+- Have no incomplete core workflows.
+- Have proper validation and error messages.
+- Have clear loading states.
+- Have clear success and failure messages.
+- Save real data in the database.
+- Work consistently across multiple devices.
+- Prevent duplicate invoices.
+- Prevent duplicate payment transaction IDs.
+- Calculate bill totals accurately.
+- Preserve Bengali text in PDFs.
+- Protect private restaurant information.
+
+Use graceful error handling for database and network failures.
+
+---
+
+# 25. Testing & Acceptance Requirements
+
+Before declaring the project complete, test the following scenarios:
+
+1. A new restaurant can register successfully.
+2. Its 30-day free trial starts immediately.
+3. The account can log in using email and password.
+4. The user can recover a password using the security question.
+5. The user can manage food categories.
+6. The user can add, edit and delete food items.
+7. Food prices can be customized independently for each restaurant.
+8. Clicking food buttons adds items correctly.
+9. Repeated clicks increase quantity.
+10. Plus, minus and direct quantity input work correctly.
+11. Customer name is mandatory.
+12. Payment method is mandatory.
+13. Every confirmed bill is marked Paid.
+14. VAT, Service Charge and Discount are not added.
+15. Invoice numbers are generated correctly.
+16. Bill previews and confirmation work.
+17. Automatic saving works.
+18. PDF receipts display Bengali correctly.
+19. Previous bills can be searched by date.
+20. Previous bills can be edited.
+21. Editing preserves the original Invoice Number.
+22. Cancellation permanently removes the bill.
+23. Dashboard sales exclude cancelled bills.
+24. Different restaurants cannot access one another's bills.
+25. Super Admin cannot access private restaurant sales.
+26. Free trial warnings appear at 7, 3 and 1 days.
+27. Expired trial accounts are restricted correctly.
+28. bKash and Nagad payment applications work.
+29. Duplicate Transaction IDs are blocked.
+30. Super Admin can manually approve or reject applications.
+31. Rejection reasons appear in the restaurant Dashboard.
+32. A rejected applicant can submit a new correct Transaction ID.
+33. Approved accounts receive Lifetime Access.
+34. Super Admin can change payment amount and numbers.
+35. Super Admin can change the free trial duration.
+36. Admin notifications appear for new registrations and payment applications.
+37. Multiple devices can use the same restaurant account simultaneously.
+38. Account deletion works with confirmation.
+39. Light Mode and Dark Mode work properly.
+40. The website works correctly on Android browsers and desktop browsers.
+
+---
+
+# 26. Final Delivery Requirements
+
+Deliver a complete, functional and production-ready RestaurantHisab website.
+
+Provide:
+
+1. Complete frontend source code.
+2. Complete backend source code.
+3. Database schema and migrations.
+4. Authentication system.
+5. Restaurant billing system.
+6. PDF receipt generator.
+7. Super Admin Panel.
+8. Payment verification system.
+9. Lifetime Access management.
+10. Security implementation.
+11. Setup instructions.
+12. Deployment instructions.
+13. Environment-variable documentation.
+14. Database initialization instructions.
+15. Initial Super Admin setup instructions.
+16. Testing documentation.
+
+The application must be ready to deploy to a real web hosting environment.
+
+Do not stop after creating the homepage or dashboard design.
+
+Implement every core feature, connect it to the actual database and test the complete user workflows.
+
+**Final Objective: Build RestaurantHisab as a secure, scalable, attractive, Bengali-language, multi-restaurant billing platform that can be accessed by restaurant owners across Bangladesh using only a web browser.**

@@ -1,0 +1,176 @@
+{
+  "entities": {
+    "SystemSettings": {
+      "title": "SystemSettings",
+      "description": "Global application configuration for payment settings, free trial, branding, logo and contact details",
+      "type": "object",
+      "properties": {
+        "lifetimeFee": { "type": "number", "description": "Lifetime access fee in BDT" },
+        "bkashNumber": { "type": "string", "description": "bKash send money phone number" },
+        "nagadNumber": { "type": "string", "description": "Nagad send money phone number" },
+        "trialDays": { "type": "number", "description": "Free trial duration in days" },
+        "siteName": { "type": "string", "description": "Custom website brand name" },
+        "siteTagline": { "type": "string", "description": "Website subtitle/tagline" },
+        "siteBadge": { "type": "string", "description": "Small brand badge label" },
+        "logoUrl": { "type": "string", "description": "Custom brand logo URL or compressed data URI" },
+        "contactAddress": { "type": "string", "description": "Business address displayed in footer and contact sections" },
+        "supportPhone": { "type": "string", "description": "Support phone number displayed on site" },
+        "supportEmail": { "type": "string", "description": "Support email address displayed on site" },
+        "heroTitle": { "type": "string", "description": "Homepage hero headline" },
+        "heroSubtitle": { "type": "string", "description": "Homepage hero description" },
+        "footerDescription": { "type": "string", "description": "Footer brand description" },
+        "copyrightText": { "type": "string", "description": "Footer copyright line" }
+      },
+      "required": ["lifetimeFee", "bkashNumber", "nagadNumber", "trialDays"]
+    },
+    "Restaurant": {
+      "title": "Restaurant",
+      "description": "Restaurant tenant profile and subscription state",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique restaurant identifier" },
+        "name": { "type": "string", "description": "Restaurant business name" },
+        "ownerName": { "type": "string", "description": "Full name of the owner" },
+        "address": { "type": "string", "description": "Physical restaurant address" },
+        "mobile": { "type": "string", "description": "Contact mobile number" },
+        "email": { "type": "string", "description": "Unique login email" },
+        "passwordHash": { "type": "string", "description": "Hashed password or auth reference" },
+        "securityQuestion": { "type": "string", "description": "Account security recovery question" },
+        "securityAnswerHash": { "type": "string", "description": "Hashed answer for password recovery" },
+        "ownerUid": { "type": "string", "description": "Firebase Auth UID of the owner" },
+        "createdAt": { "type": "string", "description": "Account creation ISO timestamp" },
+        "trialEndsAt": { "type": "string", "description": "Trial expiry ISO timestamp" },
+        "isLifetime": { "type": "boolean", "description": "Whether lifetime license is granted" },
+        "paymentStatus": { "type": "string", "description": "Current payment review status: none, pending, approved, rejected" }
+      },
+      "required": ["name", "ownerName", "address", "mobile", "email", "createdAt", "trialEndsAt", "isLifetime"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Food menu category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Category ID" },
+        "name": { "type": "string", "description": "Category name in Bengali" },
+        "restaurantId": { "type": "string", "description": "Parent restaurant ID" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["name", "restaurantId"]
+    },
+    "FoodItem": {
+      "title": "FoodItem",
+      "description": "Menu food item with fixed price",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Food item ID" },
+        "name": { "type": "string", "description": "Food name in Bengali" },
+        "price": { "type": "number", "description": "Unit price in BDT" },
+        "categoryId": { "type": "string", "description": "Category ID reference" },
+        "categoryName": { "type": "string", "description": "Category name cached" },
+        "restaurantId": { "type": "string", "description": "Parent restaurant ID" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["name", "price", "categoryId", "restaurantId"]
+    },
+    "Bill": {
+      "title": "Bill",
+      "description": "Finalized customer invoice and billing receipt",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Bill document ID" },
+        "invoiceNumber": { "type": "string", "description": "Formatted invoice number (e.g. 20261109-001)" },
+        "dateStr": { "type": "string", "description": "Local date string YYYY-MM-DD" },
+        "customerName": { "type": "string", "description": "Mandatory customer name" },
+        "paymentMethod": { "type": "string", "description": "Payment method used: Cash, bKash, Nagad, Rocket, Bank, Card" },
+        "grandTotal": { "type": "number", "description": "Grand total bill amount in BDT" },
+        "status": { "type": "string", "description": "Bill status, always PAID" },
+        "restaurantId": { "type": "string", "description": "Parent restaurant ID" },
+        "createdAt": { "type": "string", "description": "Invoice creation timestamp" }
+      },
+      "required": ["invoiceNumber", "dateStr", "customerName", "paymentMethod", "grandTotal", "status", "restaurantId"]
+    },
+    "PaymentRequest": {
+      "title": "PaymentRequest",
+      "description": "Lifetime access payment submission with transaction ID",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Payment request ID" },
+        "restaurantId": { "type": "string", "description": "Submitting restaurant ID" },
+        "restaurantName": { "type": "string", "description": "Restaurant name" },
+        "ownerName": { "type": "string", "description": "Owner name" },
+        "mobile": { "type": "string", "description": "Owner mobile number" },
+        "method": { "type": "string", "description": "bKash or Nagad" },
+        "number": { "type": "string", "description": "Admin payment receiving number" },
+        "amount": { "type": "number", "description": "Amount sent in BDT" },
+        "transactionId": { "type": "string", "description": "Mandatory globally unique transaction ID" },
+        "status": { "type": "string", "description": "PENDING, APPROVED, or REJECTED" },
+        "rejectionReason": { "type": "string", "description": "Reason given if rejected by Super Admin" },
+        "createdAt": { "type": "string", "description": "Submission timestamp" }
+      },
+      "required": ["restaurantId", "method", "amount", "transactionId", "status"]
+    },
+    "AdminNotification": {
+      "title": "AdminNotification",
+      "description": "Event notification for Super Admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Notification ID" },
+        "type": { "type": "string", "description": "NEW_REGISTRATION or NEW_PAYMENT" },
+        "title": { "type": "string", "description": "Notification headline" },
+        "message": { "type": "string", "description": "Details description" },
+        "restaurantId": { "type": "string", "description": "Related restaurant ID" },
+        "isRead": { "type": "boolean", "description": "Read flag" },
+        "createdAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["type", "title", "message", "isRead", "createdAt"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Admin broadcast advertisement or notice to all restaurants",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Announcement unique ID" },
+        "title": { "type": "string", "description": "Advertisement title" },
+        "content": { "type": "string", "description": "Advertisement description or notice details" },
+        "tag": { "type": "string", "description": "Badge: অফার, নোটিশ, আপডেট, রমজান স্পেশাল" },
+        "isActive": { "type": "boolean", "description": "Whether the ad is actively broadcast" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["title", "content", "isActive", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/settings/system": {
+      "schema": "SystemSettings",
+      "description": "Global application configuration for payment numbers, fees and trial duration"
+    },
+    "/restaurants/{restaurantId}": {
+      "schema": "Restaurant",
+      "description": "Individual restaurant tenant profile and account details"
+    },
+    "/restaurants/{restaurantId}/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Menu categories for this restaurant"
+    },
+    "/restaurants/{restaurantId}/foods/{foodId}": {
+      "schema": "FoodItem",
+      "description": "Food menu items for this restaurant"
+    },
+    "/restaurants/{restaurantId}/bills/{billId}": {
+      "schema": "Bill",
+      "description": "Invoices and bills for this restaurant"
+    },
+    "/paymentRequests/{requestId}": {
+      "schema": "PaymentRequest",
+      "description": "Lifetime access verification requests submitted by restaurant owners"
+    },
+    "/adminNotifications/{notificationId}": {
+      "schema": "AdminNotification",
+      "description": "Admin alerts for new registrations and payment submissions"
+    },
+    "/announcements/{announcementId}": {
+      "schema": "Announcement",
+      "description": "Advertisements and notices broadcast by Super Admin to all restaurants"
+    }
+  }
+}

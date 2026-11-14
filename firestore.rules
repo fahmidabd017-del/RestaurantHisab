@@ -1,0 +1,80 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global helper functions
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // System settings
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
+
+    // Restaurant tenant profile
+    match /restaurants/{restaurantId} {
+      allow get: if isValidId(restaurantId);
+      allow list: if true;
+      allow create, update, delete: if isValidId(restaurantId);
+
+      // Categories subcollection
+      match /categories/{categoryId} {
+        allow get: if isValidId(categoryId);
+        allow list: if true;
+        allow create, update, delete: if isValidId(categoryId);
+      }
+
+      // Food items subcollection
+      match /foods/{foodId} {
+        allow get: if isValidId(foodId);
+        allow list: if true;
+        allow create, update, delete: if isValidId(foodId);
+      }
+
+      // Customer bills and invoices subcollection
+      match /bills/{billId} {
+        allow get: if isValidId(billId);
+        allow list: if true;
+        allow create, update, delete: if isValidId(billId);
+      }
+
+      // Invoice sequential counters
+      match /invoiceCounters/{counterId} {
+        allow get, list, create, update, delete: if true;
+      }
+
+      // Unfinished draft bill subcollection
+      match /drafts/{draftId} {
+        allow get, list, create, update, delete: if true;
+      }
+    }
+
+    // Payment applications
+    match /paymentRequests/{requestId} {
+      allow get: if isValidId(requestId);
+      allow list: if true;
+      allow create, update, delete: if isValidId(requestId);
+    }
+
+    // Admin notifications
+    match /adminNotifications/{notificationId} {
+      allow get: if isValidId(notificationId);
+      allow list: if true;
+      allow create, update, delete: if isValidId(notificationId);
+    }
+
+    // Admin advertisements & broadcast announcements
+    match /announcements/{announcementId} {
+      allow get: if isValidId(announcementId);
+      allow list: if true;
+      allow create, update, delete: if isValidId(announcementId);
+    }
+  }
+}
