@@ -3,9 +3,154 @@ import { jsPDF } from 'jspdf';
 
 /**
  * High-definition Bengali PDF exporter using html-to-image & jsPDF.
- * Uses native browser SVG foreignObject rendering, supporting all modern CSS color
- * functions (including oklch, rgb, hsl) and 100% accurate Bengali font ligatures.
+ * Uses a CORS-safe webfont embedder passed via `fontEmbedCSS` so html-to-image
+ * never throws SecurityError when inspecting cross-origin CSSStyleSheet.cssRules.
  */
+
+const FONT_URL_REGEX = /url\(["']?([^"')]+)["']?\)/g;
+
+/**
+ * Extract all non-data font asset URLs referenced inside a CSS string and
+ * resolve relative URLs against the stylesheet base URL.
+ */
+export function extractFontAssetUrls(cssText: string, baseUrl: string): Array<{ rawMatch: string; resolvedUrl: string }> {
+  const results: Array<{ rawMatch: string; resolvedUrl: string }> = [];
+  const matches = cssText.match(/url\([^)]+\)/g) || [];
+
+  for (const rawMatch of matches) {
+    const inner = rawMatch.replace(FONT_URL_REGEX, '$1').trim();
+    if (!inner || inner.startsWith('data:') || inner.startsWith('blob:')) {
+      continue;
+    }
+    try {
+      const resolvedUrl = new URL(inner, baseUrl).href;
+      results.push({ rawMatch, resolvedUrl });
+    } catch {
+      // Ignore malformed URLs cleanly
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Replace external font asset URLs inside CSS text using an async resolver
+ * (which returns a base64 data URL or null if unavailable).
+ */
+export async function inlineFontAssetsInCSS(
+  cssText: string,
+  baseUrl: string,
+  resolveToDataUrl: (url: string) => Promise<string | null>
+): Promise<string> {
+  const assets = extractFontAssetUrls(cssText, baseUrl);
+  if (assets.length === 0) return cssText;
+
+  let updatedCss = cssText;
+  const resolvedEntries = await Promise.all(
+    assets.map(async asset => {
+      const dataUrl = await resolveToDataUrl(asset.resolvedUrl).catch(() => null);
+      return { rawMatch: asset.rawMatch, dataUrl };
+    })
+  );
+
+  for (const { rawMatch, dataUrl } of resolvedEntries) {
+    if (dataUrl) {
+      updatedCss = updatedCss.split(rawMatch).join(`url("${dataUrl}")`);
+    }
+  }
+
+  return updatedCss;
+}
+
+async function fetchUrlAsDataUrl(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return await new Promise<string | null>(resolve => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+let cachedFontEmbedCSSPromise: Promise<string> | null = null;
+
+/**
+ * Safely collects @font-face rules without triggering CSSStyleSheet.cssRules
+ * SecurityError on cross-origin stylesheets, then caches the result.
+ * Passing the returned string (even '') as `fontEmbedCSS` instructs html-to-image
+ * to skip `getWebFontCSS` / `document.styleSheets` iteration completely.
+ */
+export function getSafeFontEmbedCSS(): Promise<string> {
+  if (cachedFontEmbedCSSPromise) {
+    return cachedFontEmbedCSSPromise;
+  }
+
+  cachedFontEmbedCSSPromise = (async () => {
+    if (typeof document === 'undefined') return '';
+
+    const cssChunks: string[] = [];
+
+    // 1. Fetch remote font stylesheets via CORS-safe fetch() instead of reading cssRules
+    const stylesheetLinks = Array.from(
+      document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"][href]')
+    );
+
+    for (const link of stylesheetLinks) {
+      const href = link.href;
+      if (!href || (!href.includes('fonts.googleapis.com') && !href.includes('fonts.'))) {
+        continue;
+      }
+      try {
+        const res = await fetch(href, { mode: 'cors' });
+        if (!res.ok) continue;
+        const rawCss = await res.text();
+        const inlinedCss = await inlineFontAssetsInCSS(rawCss, href, fetchUrlAsDataUrl);
+        if (inlinedCss.trim()) {
+          cssChunks.push(inlinedCss);
+        }
+      } catch {
+        // Gracefully skip if offline or blocked without logging errors
+      }
+    }
+
+    // 2. Safely check any readable local stylesheets for inline @font-face rules
+    try {
+      for (const sheet of Array.from(document.styleSheets)) {
+        try {
+          if (sheet.href && (sheet.href.includes('fonts.googleapis.com') || sheet.href.includes('fonts.'))) {
+            continue;
+          }
+          const rules = sheet.cssRules;
+          if (!rules) continue;
+          for (const rule of Array.from(rules)) {
+            if (rule.type === CSSRule.FONT_FACE_RULE) {
+              cssChunks.push(rule.cssText);
+            }
+          }
+        } catch {
+          // Cross-origin stylesheet without CORS headers: ignore silently
+        }
+      }
+    } catch {
+      // Ignore stylesheet enumeration issues
+    }
+
+    return cssChunks.join('\n');
+  })();
+
+  return cachedFontEmbedCSSPromise;
+}
+
+/** Reset cached font CSS (intended for testing). */
+export function resetFontEmbedCache(): void {
+  cachedFontEmbedCSSPromise = null;
+}
 
 /**
  * Download Cash Memo / Invoice as Standard A4 or Compact PDF
@@ -22,11 +167,13 @@ export async function downloadReceiptPDF(
   }
 
   try {
+    const fontEmbedCSS = await getSafeFontEmbedCSS();
     const dataUrl = await toPng(element, {
       quality: 1,
       pixelRatio: 2.5,
       backgroundColor: '#ffffff',
       cacheBust: true,
+      fontEmbedCSS,
     });
 
     const img = new Image();
@@ -51,14 +198,15 @@ export async function downloadReceiptPDF(
 
     // Calculate scaling to fit neatly inside A4 margins
     const margin = 10; // 10mm margins
-    const printableWidth = a4Width - margin * 2;
+    const printableWidth = isA4Format ? a4Width - margin * 2 : Math.min(120, a4Width - margin * 2);
+    const xOffset = isA4Format ? margin : (a4Width - printableWidth) / 2;
     const computedHeight = (img.height * printableWidth) / img.width;
 
-    // Center image on A4 page
+    // Center image neatly within A4 printable area
     const yOffset = computedHeight < a4Height - margin * 2 ? margin : margin;
 
-    doc.addImage(dataUrl, 'PNG', margin, yOffset, printableWidth, Math.min(computedHeight, a4Height - margin * 2));
-    doc.save(`ইনভয়েস-${invoiceNumber}-A4.pdf`);
+    doc.addImage(dataUrl, 'PNG', xOffset, yOffset, printableWidth, Math.min(computedHeight, a4Height - margin * 2));
+    doc.save(`ইনভয়েস-${invoiceNumber}-${isA4Format ? 'A4' : 'স্লিপ'}.pdf`);
     return true;
   } catch (err) {
     console.error('Failed to generate Receipt PDF:', err);
@@ -80,11 +228,13 @@ export async function downloadA4SalesReportPDF(
   }
 
   try {
+    const fontEmbedCSS = await getSafeFontEmbedCSS();
     const dataUrl = await toPng(element, {
       quality: 1,
       pixelRatio: 2.8,
       backgroundColor: '#0B0F17',
       cacheBust: true,
+      fontEmbedCSS,
     });
 
     const img = new Image();
