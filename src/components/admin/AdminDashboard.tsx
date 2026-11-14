@@ -375,7 +375,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     try {
       const newHash = await hashString(newAdminPass);
-      localStorage.setItem('restauranthisab_admin_hash', newHash);
+      await updateSiteSettings({ adminPasswordHash: newHash });
+      localStorage.setItem('restauranthisab_admin_hash_v2', newHash);
+      localStorage.removeItem('restauranthisab_admin_hash');
       setAdminPassMsg({ type: 'success', text: 'অ্যাডমিন পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে!' });
       setNewAdminPass('');
       setConfirmAdminPass('');

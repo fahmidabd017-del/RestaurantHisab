@@ -3,7 +3,7 @@ import { onAuthStateChanged, signInWithPopup, signOut, User } from 'firebase/aut
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase/config';
 import type { Restaurant } from '../types';
-import { getRestaurantByEmail, getRestaurantById } from '../services/db';
+import { getRestaurantByEmail, getRestaurantById, getSystemSettings } from '../services/db';
 import { hashString, verifyHash } from '../utils/crypto';
 
 interface AuthContextType {
@@ -22,8 +22,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Secure cryptographic SHA-256 hash of the strong initial Super Admin password
-const DEFAULT_ADMIN_HASH = '785bda11738d31015b8f0f3a51d443a1ea9876b86ce37a701263180c3c1193b3';
+// Secure cryptographic SHA-256 hash of the Super Admin password
+const DEFAULT_ADMIN_HASH = '32b0b1541a0f7c64f73474cf266f5743757b5b0b3ea23d98b9cd0cd6f4b70a3e';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -134,8 +134,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginAdmin = async (password: string): Promise<boolean> => {
-    const customHash = localStorage.getItem('restauranthisab_admin_hash');
-    const targetHash = customHash || DEFAULT_ADMIN_HASH;
+    localStorage.removeItem('restauranthisab_admin_hash');
+    const customHash = localStorage.getItem('restauranthisab_admin_hash_v2');
+    const dbSettings = customHash ? null : await getSystemSettings().catch(() => null);
+    const targetHash = customHash || dbSettings?.adminPasswordHash || DEFAULT_ADMIN_HASH;
 
     // Cryptographic hash verification only - no plain text stored in code
     const computedHash = await hashString(password);

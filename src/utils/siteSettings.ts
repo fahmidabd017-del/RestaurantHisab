@@ -17,6 +17,7 @@ export interface ResolvedSiteSettings {
   footerDescription: string;
   copyrightText: string;
   starterMenu?: SystemSettings['starterMenu'];
+  adminPasswordHash?: string;
 }
 
 export const DEFAULT_SITE_SETTINGS: ResolvedSiteSettings = {
@@ -90,6 +91,9 @@ export function mergeSystemSettings(raw?: Partial<SystemSettings> | null): Resol
     footerDescription: pickNonEmptyString(source.footerDescription, DEFAULT_SITE_SETTINGS.footerDescription),
     copyrightText: pickNonEmptyString(source.copyrightText, DEFAULT_SITE_SETTINGS.copyrightText),
     starterMenu: source.starterMenu,
+    adminPasswordHash: typeof source.adminPasswordHash === 'string' && source.adminPasswordHash.trim()
+      ? source.adminPasswordHash.trim()
+      : undefined,
   };
 }
 

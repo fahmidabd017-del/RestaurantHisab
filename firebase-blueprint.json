@@ -19,7 +19,8 @@
         "heroTitle": { "type": "string", "description": "Homepage hero headline" },
         "heroSubtitle": { "type": "string", "description": "Homepage hero description" },
         "footerDescription": { "type": "string", "description": "Footer brand description" },
-        "copyrightText": { "type": "string", "description": "Footer copyright line" }
+        "copyrightText": { "type": "string", "description": "Footer copyright line" },
+        "adminPasswordHash": { "type": "string", "description": "Salted SHA-256 hash of Super Admin password" }
       },
       "required": ["lifetimeFee", "bkashNumber", "nagadNumber", "trialDays"]
     },

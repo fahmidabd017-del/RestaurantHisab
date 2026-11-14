@@ -113,6 +113,7 @@ export interface SystemSettings {
   heroSubtitle?: string;
   footerDescription?: string;
   copyrightText?: string;
+  adminPasswordHash?: string;
 }
 
 export interface Announcement {
