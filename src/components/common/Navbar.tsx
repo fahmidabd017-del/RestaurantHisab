@@ -58,16 +58,16 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-[#0B0F17]/95 backdrop-blur-md border-b border-slate-800/90 text-white relative">
-      {/* Subtle executive top accent hairline */}
+      {/* Animated executive multi-color top hairline */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-orange-500 via-amber-400 to-blue-500"
+        className="pointer-events-none absolute top-0 left-0 right-0 h-[2px] orbit-hairline-flow"
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-3">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-2.5 min-w-0 lg:shrink-0">
             {restaurant && !isAdmin && onToggleMobileSidebar && (
               <button
                 onClick={onToggleMobileSidebar}
@@ -92,7 +92,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div className="flex items-center gap-1.5">
                   <span
                     data-testid="navbar-site-name"
-                    className="font-extrabold text-base sm:text-lg text-white tracking-tight truncate max-w-[170px] sm:max-w-[230px]"
+                    className="font-extrabold text-base sm:text-lg text-white tracking-tight truncate max-w-[170px] sm:max-w-none whitespace-nowrap"
                   >
                     {settings.siteName}
                   </span>
@@ -104,7 +104,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
                 <p
                   data-testid="navbar-site-tagline"
-                  className="text-[11px] text-slate-400 font-medium -mt-0.5 truncate max-w-[210px]"
+                  className="text-[11px] text-slate-400 font-medium -mt-0.5 truncate max-w-[190px] sm:max-w-[230px]"
                 >
                   {settings.siteTagline}
                 </p>
@@ -113,7 +113,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-1 text-sm font-medium">
+          <nav className="hidden md:flex items-center gap-0.5 text-sm font-medium">
             {!restaurant && !isAdmin && (
               <>
                 {[
@@ -126,7 +126,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <button
                     key={item.id}
                     onClick={() => handleNav(item.id)}
-                    className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    className={`px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                       currentView === item.id
                         ? 'text-orange-400 font-bold bg-[#151E2E]/80'
                         : 'text-slate-300 hover:text-white hover:bg-[#151E2E]/50'

@@ -10,6 +10,7 @@ export interface Restaurant {
   securityAnswerHash: string;
   ownerUid?: string;
   createdAt: string; // ISO date
+  passwordUpdatedAt?: string; // ISO date when password was last changed/reset
   trialEndsAt: string; // ISO date
   isLifetime: boolean;
   paymentStatus: 'none' | 'pending' | 'approved' | 'rejected';

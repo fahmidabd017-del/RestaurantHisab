@@ -33,11 +33,133 @@
     background: #ffffff !important;
     color: #000000 !important;
   }
-  header, footer, nav, button, .no-print {
+  header, footer, nav, button, .no-print,
+  .orbit-border-ring,
+  .orbit-site-frame {
     display: none !important;
   }
   @page {
     size: A4 portrait;
     margin: 10mm;
+  }
+}
+
+/* ============================================================================
+   Executive 4-Sided Orbiting Multi-Color Perimeter Border System
+   (GPU-composited transform rotation for silky 60fps with zero main-thread repaint)
+   ============================================================================ */
+@keyframes orbit-border-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes orbit-hairline-pan {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+.orbit-border-ring {
+  position: absolute;
+  inset: 0;
+  margin: 0 !important;
+  border-radius: inherit;
+  padding: 1.5px;
+  z-index: 20;
+  pointer-events: none;
+  overflow: hidden;
+  container-type: size;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+.orbit-border-ring::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 155cqmax;
+  height: 155cqmax;
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    var(--orbit-c1, rgba(59, 130, 246, 0.95)) 0deg,
+    var(--orbit-c2, rgba(16, 185, 129, 0.92)) 65deg,
+    var(--orbit-c3, rgba(245, 158, 11, 0.95)) 130deg,
+    var(--orbit-c4, rgba(244, 63, 94, 0.88)) 185deg,
+    var(--orbit-c5, rgba(139, 92, 246, 0.72)) 225deg,
+    rgba(148, 163, 184, 0.16) 275deg,
+    rgba(148, 163, 184, 0.14) 325deg,
+    var(--orbit-c1, rgba(59, 130, 246, 0.95)) 360deg
+  );
+  will-change: transform;
+  animation: orbit-border-spin 7.5s linear infinite;
+  animation-delay: var(--orbit-delay, 0s);
+}
+
+/* Full Website 4-Sided Outer Perimeter Orbit Frame */
+.orbit-site-frame {
+  position: fixed;
+  inset: 0;
+  padding: 2.5px;
+  z-index: 45;
+  pointer-events: none;
+  overflow: hidden;
+  box-shadow: inset 0 0 18px rgba(59, 130, 246, 0.08);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+.orbit-site-frame::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 155vmax;
+  height: 155vmax;
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(59, 130, 246, 0.96) 0deg,
+    rgba(16, 185, 129, 0.92) 70deg,
+    rgba(245, 158, 11, 0.95) 140deg,
+    rgba(244, 63, 94, 0.88) 205deg,
+    rgba(139, 92, 246, 0.72) 250deg,
+    rgba(51, 65, 85, 0.2) 295deg,
+    rgba(51, 65, 85, 0.18) 335deg,
+    rgba(59, 130, 246, 0.96) 360deg
+  );
+  will-change: transform;
+  animation: orbit-border-spin 8.5s linear infinite;
+}
+
+.orbit-hairline-flow {
+  background-image: linear-gradient(
+    90deg,
+    rgba(59, 130, 246, 0.9),
+    rgba(16, 185, 129, 0.9),
+    rgba(245, 158, 11, 0.95),
+    rgba(244, 63, 94, 0.85),
+    rgba(59, 130, 246, 0.9)
+  );
+  background-size: 200% 100%;
+  animation: orbit-hairline-pan 6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-border-ring::before,
+  .orbit-site-frame::before,
+  .orbit-hairline-flow {
+    animation: none;
+    transform: translate(-50%, -50%) rotate(45deg);
   }
 }

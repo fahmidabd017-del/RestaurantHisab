@@ -203,7 +203,10 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
         const rest = await getRestaurantByEmail(targetEmail).catch(() => null);
         if (rest) {
           const newHash = await hashString(newPassword);
-          await updateRestaurant(rest.id, { passwordHash: newHash });
+          await updateRestaurant(rest.id, {
+            passwordHash: newHash,
+            passwordUpdatedAt: new Date().toISOString(),
+          });
         }
       }
 
@@ -303,6 +306,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
       const newHash = await hashString(newPassword);
       await updateRestaurant(targetRestaurantId, {
         passwordHash: newHash,
+        passwordUpdatedAt: new Date().toISOString(),
       });
 
       setSuccessMsg('পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে! এখন লগইন করুন।');

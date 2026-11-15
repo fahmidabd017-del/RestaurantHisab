@@ -154,10 +154,13 @@ function MainApp() {
 
   return (
     <div
-      className={`min-h-screen bg-[#0B0F17] text-white flex flex-col font-sans transition-colors ${
+      className={`min-h-screen bg-[#0B0F17] text-white flex flex-col font-sans transition-colors relative ${
         restaurant && !isAdmin ? 'lg:pl-72' : ''
       }`}
     >
+      {/* Full-Website 4-Sided Orbiting Perimeter Frame */}
+      <div aria-hidden="true" className="orbit-site-frame" />
+
       {/* Persistent Left Sidebar for Restaurant Tenant */}
       {restaurant && !isAdmin && (
         <RestaurantSidebar
@@ -272,19 +275,34 @@ function MainApp() {
         {isAdmin && (
           <>
             {currentView === 'admin-dashboard' && (
-              <AdminDashboard initialSubTab="dashboard" />
+              <AdminDashboard
+                initialSubTab="dashboard"
+                onUnreadNotificationCountChange={setAdminNotifCount}
+              />
             )}
             {currentView === 'admin-restaurants' && (
-              <AdminDashboard initialSubTab="restaurants" />
+              <AdminDashboard
+                initialSubTab="restaurants"
+                onUnreadNotificationCountChange={setAdminNotifCount}
+              />
             )}
             {currentView === 'admin-payments' && (
-              <AdminDashboard initialSubTab="payments" />
+              <AdminDashboard
+                initialSubTab="payments"
+                onUnreadNotificationCountChange={setAdminNotifCount}
+              />
             )}
             {currentView === 'admin-settings' && (
-              <AdminDashboard initialSubTab="settings" />
+              <AdminDashboard
+                initialSubTab="settings"
+                onUnreadNotificationCountChange={setAdminNotifCount}
+              />
             )}
             {currentView === 'admin-notifications' && (
-              <AdminDashboard initialSubTab="notifications" />
+              <AdminDashboard
+                initialSubTab="notifications"
+                onUnreadNotificationCountChange={setAdminNotifCount}
+              />
             )}
           </>
         )}

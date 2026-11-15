@@ -171,6 +171,7 @@ export async function registerRestaurant(data: {
     securityAnswerHash: data.securityAnswerHash,
     ownerUid: data.ownerUid || '',
     createdAt: now.toISOString(),
+    passwordUpdatedAt: now.toISOString(),
     trialEndsAt: trialEnd.toISOString(),
     isLifetime: false,
     paymentStatus: 'none',
@@ -227,7 +228,24 @@ export async function deleteRestaurantPermanently(id: string): Promise<void> {
     for (const d of draftSnap.docs) {
       await deleteDoc(d.ref);
     }
-    // 5. Delete restaurant document itself
+    // 5. Delete invoice counters
+    const counterSnap = await getDocs(collection(db, 'restaurants', id, 'invoiceCounters'));
+    for (const ic of counterSnap.docs) {
+      await deleteDoc(ic.ref);
+    }
+    // 6. Delete related payment requests
+    const payQuery = query(collection(db, 'paymentRequests'), where('restaurantId', '==', id));
+    const paySnap = await getDocs(payQuery);
+    for (const p of paySnap.docs) {
+      await deleteDoc(p.ref);
+    }
+    // 7. Delete related admin notifications
+    const notifQuery = query(collection(db, 'adminNotifications'), where('restaurantId', '==', id));
+    const notifSnap = await getDocs(notifQuery);
+    for (const n of notifSnap.docs) {
+      await deleteDoc(n.ref);
+    }
+    // 8. Delete restaurant document itself
     await deleteDoc(doc(db, 'restaurants', id));
   } catch (err) {
     handleFirestoreError(err, OperationType.DELETE, `restaurants/${id}`);
@@ -740,6 +758,25 @@ export async function markAdminNotificationRead(id: string): Promise<void> {
     await updateDoc(doc(db, 'adminNotifications', id), { isRead: true });
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `adminNotifications/${id}`);
+  }
+}
+
+export async function deleteAdminNotification(id: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'adminNotifications', id));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `adminNotifications/${id}`);
+  }
+}
+
+export async function deleteAllAdminNotifications(): Promise<void> {
+  try {
+    const snap = await getDocs(collection(db, 'adminNotifications'));
+    for (const n of snap.docs) {
+      await deleteDoc(n.ref);
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, 'adminNotifications');
   }
 }
 

@@ -5,6 +5,10 @@ import {
   getAllPaymentRequests,
   getAdminNotifications,
   markAdminNotificationRead,
+  deleteAdminNotification,
+  deleteAllAdminNotifications,
+  deleteRestaurantPermanently,
+  updateRestaurant,
   approvePaymentRequest,
   rejectPaymentRequest,
   getAnnouncements,
@@ -18,7 +22,15 @@ import {
   formatTaka,
   getBangladeshDateString,
 } from '../../utils/date';
-import { hashString } from '../../utils/crypto';
+import { hashString, verifyHash } from '../../utils/crypto';
+import {
+  countUnreadNotifications,
+  filterRestaurantsForAdmin,
+  generateTemporaryPassword,
+  maskDigestForDisplay,
+  removeNotificationFromList,
+  removeRestaurantFromList,
+} from '../../utils/adminDirectory';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
 import { DEFAULT_SITE_SETTINGS } from '../../utils/siteSettings';
 import { resizeLogoFileToDataUrl } from '../../utils/imageResize';
@@ -32,6 +44,7 @@ import { BrandLogo } from '../common/BrandLogo';
 import { TopAccentBar } from '../common/TopAccentBar';
 import {
   ShieldCheck,
+  ShieldAlert,
   Building2,
   CreditCard,
   CheckCircle2,
@@ -54,14 +67,21 @@ import {
   Lock,
   Unlock,
   KeyRound,
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
+  RefreshCw,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
   initialSubTab?: 'dashboard' | 'restaurants' | 'payments' | 'ads' | 'settings' | 'notifications';
+  onUnreadNotificationCountChange?: (count: number) => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   initialSubTab = 'dashboard',
+  onUnreadNotificationCountChange,
 }) => {
   const { settings, isLoading: isSettingsLoading, updateSiteSettings } = useSiteSettings();
   const [subTab, setSubTab] = useState(initialSubTab);
@@ -84,6 +104,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [rejectingReq, setRejectingReq] = useState<PaymentRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Restaurant Password Details & Delete Modals
+  const [detailRestaurant, setDetailRestaurant] = useState<Restaurant | null>(null);
+  const [showPasswordHash, setShowPasswordHash] = useState(false);
+  const [showSecAnswerHash, setShowSecAnswerHash] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [verifyGuessInput, setVerifyGuessInput] = useState('');
+  const [verifyGuessResult, setVerifyGuessResult] = useState<'idle' | 'match' | 'mismatch'>('idle');
+  const [adminResetPassInput, setAdminResetPassInput] = useState('');
+  const [isSavingAdminResetPass, setIsSavingAdminResetPass] = useState(false);
+  const [adminSetNewPassResult, setAdminSetNewPassResult] = useState<{
+    password: string;
+    message: string;
+  } | null>(null);
+  const [adminDetailError, setAdminDetailError] = useState<string | null>(null);
+  const [deletingRestaurant, setDeletingRestaurant] = useState<Restaurant | null>(null);
+  const [isDeletingRestaurant, setIsDeletingRestaurant] = useState(false);
+
+  // Notifications deletion state
+  const [isConfirmDeleteAllNotifsOpen, setIsConfirmDeleteAllNotifsOpen] = useState(false);
+  const [isDeletingNotifs, setIsDeletingNotifs] = useState(false);
 
   // Announcement form
   const [isAdModalOpen, setIsAdModalOpen] = useState(false);
@@ -195,6 +236,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   useEffect(() => {
     loadAllAdminData();
   }, []);
+
+  useEffect(() => {
+    onUnreadNotificationCountChange?.(countUnreadNotifications(notifications));
+  }, [notifications, onUnreadNotificationCountChange]);
 
   // Stats calculation
   const totalRestaurants = restaurants.length;
@@ -546,13 +591,122 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const filteredRestaurants = restaurants.filter(
-    r =>
-      r.name.toLowerCase().includes(restaurantSearch.trim().toLowerCase()) ||
-      r.ownerName.toLowerCase().includes(restaurantSearch.trim().toLowerCase()) ||
-      r.mobile.includes(restaurantSearch.trim()) ||
-      r.email.toLowerCase().includes(restaurantSearch.trim().toLowerCase())
-  );
+  const handleDeleteNotification = async (id: string) => {
+    try {
+      await deleteAdminNotification(id);
+      setNotifications(prev => removeNotificationFromList(prev, id));
+      showToast('বিজ্ঞপ্তি সফলভাবে ডিলিট করা হয়েছে।', 'success');
+    } catch {
+      showToast('বিজ্ঞপ্তি ডিলিট করতে সমস্যা হয়েছে।', 'error');
+    }
+  };
+
+  const handleConfirmDeleteAllNotifications = async () => {
+    setIsDeletingNotifs(true);
+    try {
+      await deleteAllAdminNotifications();
+      setNotifications([]);
+      setIsConfirmDeleteAllNotifsOpen(false);
+      showToast('সকল অ্যাডমিন বিজ্ঞপ্তি সফলভাবে ডিলিট করা হয়েছে।', 'success');
+    } catch {
+      showToast('সব বিজ্ঞপ্তি ডিলিট করতে সমস্যা হয়েছে।', 'error');
+    } finally {
+      setIsDeletingNotifs(false);
+    }
+  };
+
+  const openRestaurantDetails = (r: Restaurant) => {
+    setDetailRestaurant(r);
+    setShowPasswordHash(false);
+    setShowSecAnswerHash(false);
+    setCopiedField(null);
+    setVerifyGuessInput('');
+    setVerifyGuessResult('idle');
+    setAdminResetPassInput('');
+    setAdminSetNewPassResult(null);
+    setAdminDetailError(null);
+  };
+
+  const handleCopyText = async (field: string, value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      showToast('কপি করতে ব্যর্থ হয়েছে।', 'error');
+    }
+  };
+
+  const handleVerifyCandidatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!detailRestaurant || !verifyGuessInput) return;
+    const isMatch = await verifyHash(verifyGuessInput, detailRestaurant.passwordHash);
+    setVerifyGuessResult(isMatch ? 'match' : 'mismatch');
+  };
+
+  const handleAdminSetRestaurantPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!detailRestaurant) return;
+    setAdminDetailError(null);
+    setAdminSetNewPassResult(null);
+
+    if (adminResetPassInput.length < 6) {
+      setAdminDetailError('নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।');
+      return;
+    }
+
+    setIsSavingAdminResetPass(true);
+    try {
+      const newHash = await hashString(adminResetPassInput);
+      const updatedAt = new Date().toISOString();
+      await updateRestaurant(detailRestaurant.id, {
+        passwordHash: newHash,
+        passwordUpdatedAt: updatedAt,
+      });
+
+      const updatedRest: Restaurant = {
+        ...detailRestaurant,
+        passwordHash: newHash,
+        passwordUpdatedAt: updatedAt,
+      };
+      setDetailRestaurant(updatedRest);
+      setRestaurants(prev => prev.map(item => (item.id === updatedRest.id ? updatedRest : item)));
+      setAdminSetNewPassResult({
+        password: adminResetPassInput,
+        message: 'অ্যাকাউন্টের পাসওয়ার্ড সফলভাবে আপডেট করা হয়েছে! নিচের পাসওয়ার্ডটি কপি করে মালিককে দিতে পারবেন।',
+      });
+      setAdminResetPassInput('');
+      showToast(`${detailRestaurant.name}-এর পাসওয়ার্ড সফলভাবে আপডেট হয়েছে।`, 'success');
+    } catch {
+      setAdminDetailError('পাসওয়ার্ড আপডেট করতে সমস্যা হয়েছে।');
+    } finally {
+      setIsSavingAdminResetPass(false);
+    }
+  };
+
+  const handleConfirmDeleteRestaurant = async () => {
+    if (!deletingRestaurant) return;
+    const targetId = deletingRestaurant.id;
+    const targetName = deletingRestaurant.name;
+    setIsDeletingRestaurant(true);
+    try {
+      await deleteRestaurantPermanently(targetId);
+      setRestaurants(prev => removeRestaurantFromList(prev, targetId));
+      setPayments(prev => prev.filter(p => p.restaurantId !== targetId));
+      setNotifications(prev => prev.filter(n => n.restaurantId !== targetId));
+      if (detailRestaurant?.id === targetId) {
+        setDetailRestaurant(null);
+      }
+      setDeletingRestaurant(null);
+      showToast(`"${targetName}" অ্যাকাউন্ট ও সকল তথ্য স্থায়ীভাবে ডিলিট করা হয়েছে।`, 'success');
+    } catch {
+      showToast('অ্যাকাউন্ট ডিলিট করতে সমস্যা হয়েছে।', 'error');
+    } finally {
+      setIsDeletingRestaurant(false);
+    }
+  };
+
+  const filteredRestaurants = filterRestaurantsForAdmin(restaurants, restaurantSearch);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 text-white">
@@ -790,32 +944,67 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <th className="px-4 py-3 font-semibold">ঠিকানা</th>
                   <th className="px-4 py-3 font-semibold">স্ট্যাটাস</th>
                   <th className="px-4 py-3 font-semibold">তারিখ</th>
+                  <th className="px-4 py-3 font-semibold text-right">পাসওয়ার্ড ও অ্যাকশন</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80">
-                {filteredRestaurants.map(r => (
-                  <tr key={r.id} className="bg-[#0B0F17] hover:bg-[#151E2E]/70 transition-colors">
-                    <td className="px-4 py-3.5 font-bold text-white">{r.name}</td>
-                    <td className="px-4 py-3.5 text-slate-200">{r.ownerName}</td>
-                    <td className="px-4 py-3.5 font-mono text-slate-200">{r.mobile}</td>
-                    <td className="px-4 py-3.5 text-slate-300">{r.email}</td>
-                    <td className="px-4 py-3.5 text-slate-300 truncate max-w-xs">{r.address}</td>
-                    <td className="px-4 py-3.5">
-                      {r.isLifetime ? (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-700 text-emerald-300 text-[10px] font-bold">
-                          লাইফটাইম
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full bg-orange-950/80 border border-orange-700 text-orange-300 text-[10px] font-bold">
-                          ট্রায়াল
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 text-slate-400">
-                      {formatBengaliDate(r.createdAt)}
+                {filteredRestaurants.length === 0 ? (
+                  <tr className="bg-[#0B0F17]">
+                    <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                      {restaurantSearch.trim()
+                        ? 'সার্চ অনুযায়ী কোনো রেস্তোরাঁ পাওয়া যায়নি।'
+                        : 'এখনও কোনো রেস্তোরাঁ অ্যাকাউন্ট তৈরি হয়নি। রেজিস্ট্রেশন করলেই এখানে অ্যাকাউন্ট দেখা যাবে।'}
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredRestaurants.map(r => (
+                    <tr key={r.id} className="bg-[#0B0F17] hover:bg-[#151E2E]/70 transition-colors">
+                      <td className="px-4 py-3.5 font-bold text-white">{r.name}</td>
+                      <td className="px-4 py-3.5 text-slate-200">{r.ownerName}</td>
+                      <td className="px-4 py-3.5 font-mono text-slate-200">{r.mobile}</td>
+                      <td className="px-4 py-3.5 text-slate-300">{r.email}</td>
+                      <td className="px-4 py-3.5 text-slate-300 truncate max-w-[180px]">{r.address}</td>
+                      <td className="px-4 py-3.5">
+                        {r.isLifetime ? (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-700 text-emerald-300 text-[10px] font-bold whitespace-nowrap">
+                            লাইফটাইম
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-orange-950/80 border border-orange-700 text-orange-300 text-[10px] font-bold whitespace-nowrap">
+                            ট্রায়াল
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 text-slate-400 whitespace-nowrap">
+                        {formatBengaliDate(r.createdAt)}
+                      </td>
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            data-testid={`admin-view-restaurant-${r.id}`}
+                            aria-label={`পাসওয়ার্ড ও বিস্তারিত দেখুন: ${r.name}`}
+                            onClick={() => openRestaurantDetails(r)}
+                            className="px-2.5 py-1.5 rounded-lg bg-blue-950/70 hover:bg-blue-900/80 border border-blue-700/60 text-blue-300 hover:text-white font-semibold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <KeyRound className="w-3.5 h-3.5" />
+                            <span>পাসওয়ার্ড/বিস্তারিত</span>
+                          </button>
+                          <button
+                            type="button"
+                            data-testid={`admin-delete-restaurant-${r.id}`}
+                            aria-label={`রেস্তোরাঁ ডিলিট করুন: ${r.name}`}
+                            onClick={() => setDeletingRestaurant(r)}
+                            className="px-2.5 py-1.5 rounded-lg bg-rose-950/70 hover:bg-rose-700 border border-rose-700/60 text-rose-300 hover:text-white font-semibold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>ডিলিট</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -1573,38 +1762,86 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {subTab === 'notifications' && (
         <div className="relative overflow-hidden bg-[#0E1524] rounded-2xl border border-slate-800 shadow-xl p-6 space-y-4">
           <TopAccentBar variant="cyan" />
-          <h3 className="font-bold text-base text-white flex items-center gap-2 relative z-10">
-            <Bell className="w-5 h-5 text-cyan-400" />
-            অ্যাডমিন নোটিফিকেশন হিস্ট্রি
-          </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
+            <div>
+              <h3 className="font-bold text-base text-white flex items-center gap-2">
+                <Bell className="w-5 h-5 text-cyan-400" />
+                অ্যাডমিন নোটিফিকেশন হিস্ট্রি ({formatBengaliNumber(notifications.length)})
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                নতুন রেজিস্ট্রেশন ও পেমেন্ট সংক্রান্ত বিজ্ঞপ্তি পড়ুন অথবা অপ্রয়োজনীয় বিজ্ঞপ্তি ডিলিট করুন
+              </p>
+            </div>
+
+            {notifications.length > 0 && (
+              <button
+                type="button"
+                data-testid="admin-delete-all-notifs-btn"
+                onClick={() => setIsConfirmDeleteAllNotifsOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-700 border border-rose-700/60 text-rose-300 hover:text-white font-bold text-xs flex items-center gap-1.5 transition-colors shrink-0 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>সব বিজ্ঞপ্তি ডিলিট করুন</span>
+              </button>
+            )}
+          </div>
 
           {notifications.length === 0 ? (
-            <p className="text-xs text-slate-400 py-3 relative z-10">এখনও কোনো বিজ্ঞপ্তি নেই।</p>
+            <div className="p-8 text-center text-xs text-slate-400 border border-dashed border-slate-800 bg-[#111927] rounded-xl relative z-10">
+              এখনও কোনো বিজ্ঞপ্তি নেই।
+            </div>
           ) : (
             <div className="space-y-2.5 relative z-10">
               {notifications.map(n => (
                 <div
                   key={n.id}
-                  className={`p-3.5 rounded-xl border flex items-center justify-between text-xs ${
+                  data-testid={`admin-notif-item-${n.id}`}
+                  className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
                     n.isRead
                       ? 'bg-[#111927] border-slate-800 text-slate-400'
                       : 'bg-purple-950/40 border-purple-700/60 text-white font-semibold'
                   }`}
                 >
-                  <div className="space-y-0.5">
-                    <span className="block text-white">{n.title}</span>
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-white font-bold">{n.title}</span>
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          n.type === 'NEW_PAYMENT'
+                            ? 'bg-emerald-950/80 border border-emerald-700/60 text-emerald-300'
+                            : 'bg-blue-950/80 border border-blue-700/60 text-blue-300'
+                        }`}
+                      >
+                        {n.type === 'NEW_PAYMENT' ? 'পেমেন্ট' : 'রেজিস্ট্রেশন'}
+                      </span>
+                    </div>
                     <p className="text-slate-300 font-normal">{n.message}</p>
-                    <span className="text-[10px] text-slate-400">{formatBengaliDate(n.createdAt)}</span>
+                    <span className="text-[10px] text-slate-400 block">
+                      {formatBengaliDate(n.createdAt)}
+                    </span>
                   </div>
 
-                  {!n.isRead && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    {!n.isRead && (
+                      <button
+                        type="button"
+                        onClick={() => handleMarkNotifRead(n.id)}
+                        className="px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold cursor-pointer"
+                      >
+                        পড়া হয়েছে
+                      </button>
+                    )}
                     <button
-                      onClick={() => handleMarkNotifRead(n.id)}
-                      className="px-2.5 py-1 rounded bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold shrink-0 cursor-pointer"
+                      type="button"
+                      data-testid={`admin-delete-notif-${n.id}`}
+                      aria-label={`বিজ্ঞপ্তি ডিলিট করুন: ${n.title}`}
+                      onClick={() => handleDeleteNotification(n.id)}
+                      className="px-2.5 py-1.5 rounded-lg bg-rose-950/70 hover:bg-rose-700 border border-rose-700/60 text-rose-300 hover:text-white text-[11px] font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
                     >
-                      পড়া হয়েছে
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>ডিলিট</span>
                     </button>
-                  )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1805,6 +2042,359 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* RESTAURANT ACCOUNT & PASSWORD DETAILS MODAL */}
+      {detailRestaurant && (
+        <div
+          data-testid="admin-restaurant-detail-modal"
+          className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4 overflow-y-auto"
+        >
+          <div className="relative overflow-hidden bg-[#0E1524] text-white rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-800 my-6">
+            <TopAccentBar variant="blue" />
+            <div className="px-6 py-4 bg-[#111927] border-b border-slate-800 flex items-center justify-between gap-3 relative z-10">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-blue-950/80 border border-blue-700/60 text-blue-400 flex items-center justify-center shrink-0">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-base text-white truncate">
+                    {detailRestaurant.name} — অ্যাকাউন্ট ও পাসওয়ার্ড ডিটেইলস
+                  </h3>
+                  <p className="text-xs text-slate-400 truncate">
+                    মালিক: {detailRestaurant.ownerName} · আইডি: {detailRestaurant.id}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="পাসওয়ার্ড ডিটেইলস মডাল বন্ধ করুন"
+                onClick={() => setDetailRestaurant(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#151E2E] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 max-h-[78vh] overflow-y-auto relative z-10 text-xs">
+              {/* Identity Summary Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 rounded-xl bg-[#111927] border border-slate-800 space-y-1">
+                  <span className="text-[11px] text-slate-400 block">লগইন ইমেইল</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono font-bold text-white break-all">{detailRestaurant.email}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText('email', detailRestaurant.email)}
+                      className="p-1 rounded bg-[#151E2E] text-slate-300 hover:text-white cursor-pointer shrink-0"
+                      title="ইমেইল কপি করুন"
+                    >
+                      {copiedField === 'email' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#111927] border border-slate-800 space-y-1">
+                  <span className="text-[11px] text-slate-400 block">মোবাইল নম্বর</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono font-bold text-white">{detailRestaurant.mobile}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText('mobile', detailRestaurant.mobile)}
+                      className="p-1 rounded bg-[#151E2E] text-slate-300 hover:text-white cursor-pointer shrink-0"
+                      title="মোবাইল কপি করুন"
+                    >
+                      {copiedField === 'mobile' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#111927] border border-slate-800 space-y-1">
+                  <span className="text-[11px] text-slate-400 block">Firebase Auth UID</span>
+                  <span className="font-mono text-slate-200 break-all block">
+                    {detailRestaurant.ownerUid || 'নেই (পাসওয়ার্ড ভিত্তিক লগইন)'}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#111927] border border-slate-800 space-y-1">
+                  <span className="text-[11px] text-slate-400 block">পাসওয়ার্ড সর্বশেষ আপডেট</span>
+                  <span className="text-slate-200 font-semibold block">
+                    {formatBengaliDate(detailRestaurant.passwordUpdatedAt || detailRestaurant.createdAt)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Cryptographic Credentials Box */}
+              <div className="p-4 rounded-xl bg-[#111927] border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-white flex items-center gap-1.5">
+                    <Lock className="w-4 h-4 text-amber-400" />
+                    পাসওয়ার্ড ও নিরাপত্তা হ্যাশ ডিটেইলস
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-950/70 border border-emerald-700/60 text-emerald-300 text-[10px] font-bold">
+                    SHA-256 এনক্রিপ্টেড
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-slate-400">সংরক্ষিত পাসওয়ার্ড হ্যাশ (Digest)</span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        data-testid="admin-toggle-password-hash"
+                        onClick={() => setShowPasswordHash(prev => !prev)}
+                        className="px-2 py-1 rounded-md bg-[#151E2E] border border-slate-700 text-slate-200 hover:text-white text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        {showPasswordHash ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                        <span>{showPasswordHash ? 'লুকান' : 'দেখুন'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyText('hash', detailRestaurant.passwordHash)}
+                        className="px-2 py-1 rounded-md bg-[#151E2E] border border-slate-700 text-slate-200 hover:text-white text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        {copiedField === 'hash' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        <span>কপি</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    data-testid="admin-password-hash-value"
+                    className="p-2.5 rounded-lg bg-[#0B0F17] border border-slate-800 font-mono text-[11px] text-amber-300 break-all"
+                  >
+                    {maskDigestForDisplay(detailRestaurant.passwordHash, showPasswordHash)}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 pt-2 border-t border-slate-800">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-slate-400">
+                      নিরাপত্তা প্রশ্ন: <strong className="text-slate-200">{detailRestaurant.securityQuestion || 'সেট করা নেই'}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowSecAnswerHash(prev => !prev)}
+                      className="px-2 py-1 rounded-md bg-[#151E2E] border border-slate-700 text-slate-200 hover:text-white text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      {showSecAnswerHash ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      <span>{showSecAnswerHash ? 'উত্তর হ্যাশ লুকান' : 'উত্তর হ্যাশ দেখুন'}</span>
+                    </button>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-[#0B0F17] border border-slate-800 font-mono text-[11px] text-slate-300 break-all">
+                    {maskDigestForDisplay(detailRestaurant.securityAnswerHash, showSecAnswerHash)}
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  * নিরাপত্তার জন্য মূল পাসওয়ার্ড ১-মুখী SHA-256 হ্যাশ হিসেবে সংরক্ষিত থাকে। তবে আপনি নিচ থেকে যেকোনো পাসওয়ার্ড যাচাই করতে বা মালিকের জন্য সরাসরি নতুন পাসওয়ার্ড সেট করতে পারবেন।
+                </p>
+              </div>
+
+              {/* Verify Candidate Password Tool */}
+              <form
+                onSubmit={handleVerifyCandidatePassword}
+                className="p-4 rounded-xl bg-[#111927] border border-slate-800 space-y-2.5"
+              >
+                <span className="font-bold text-white block">পাসওয়ার্ড মিলিয়ে দেখুন (Verify)</span>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={verifyGuessInput}
+                    onChange={e => {
+                      setVerifyGuessInput(e.target.value);
+                      setVerifyGuessResult('idle');
+                    }}
+                    placeholder="সন্দেহভাজন পাসওয়ার্ড লিখে যাচাই করুন..."
+                    className="flex-1 px-3 py-2 rounded-xl border border-slate-700 bg-[#0B0F17] text-white text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-xl bg-[#151E2E] hover:bg-blue-600 border border-slate-700 hover:border-blue-500 text-white font-bold text-xs cursor-pointer"
+                  >
+                    যাচাই করুন
+                  </button>
+                </div>
+                {verifyGuessResult === 'match' && (
+                  <p className="text-emerald-400 font-semibold">সঠিক! এই পাসওয়ার্ডটি অ্যাকাউন্টের বর্তমান পাসওয়ার্ডের সাথে মিলেছে।</p>
+                )}
+                {verifyGuessResult === 'mismatch' && (
+                  <p className="text-rose-400 font-semibold">মেলেনি! এই পাসওয়ার্ডটি অ্যাকাউন্টের বর্তমান পাসওয়ার্ড নয়।</p>
+                )}
+              </form>
+
+              {/* Direct Admin Password Reset */}
+              <form
+                onSubmit={handleAdminSetRestaurantPassword}
+                className="p-4 rounded-xl bg-[#111927] border border-blue-800/50 space-y-3"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-bold text-white">সরাসরি নতুন পাসওয়ার্ড সেট / রিসেট করুন</span>
+                  <button
+                    type="button"
+                    onClick={() => setAdminResetPassInput(generateTemporaryPassword(8))}
+                    className="px-2.5 py-1 rounded-lg bg-[#151E2E] hover:bg-slate-700 border border-slate-700 text-amber-300 font-semibold text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>অটো পাসওয়ার্ড তৈরি</span>
+                  </button>
+                </div>
+
+                {adminDetailError && (
+                  <div className="p-2.5 rounded-lg bg-rose-950/60 border border-rose-700 text-rose-200 text-xs">
+                    {adminDetailError}
+                  </div>
+                )}
+
+                {adminSetNewPassResult && (
+                  <div
+                    data-testid="admin-reset-pass-success"
+                    className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700 text-emerald-200 space-y-2"
+                  >
+                    <p className="font-semibold">{adminSetNewPassResult.message}</p>
+                    <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#0B0F17] border border-emerald-800/60">
+                      <span className="font-mono font-bold text-white text-sm">
+                        {adminSetNewPassResult.password}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyText('newpass', adminSetNewPassResult.password)}
+                        className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        {copiedField === 'newpass' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedField === 'newpass' ? 'কপি হয়েছে' : 'কপি করুন'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    required
+                    minLength={6}
+                    data-testid="admin-set-new-password-input"
+                    value={adminResetPassInput}
+                    onChange={e => setAdminResetPassInput(e.target.value)}
+                    placeholder="নতুন পাসওয়ার্ড লিখুন (কমপক্ষে ৬ অক্ষর)"
+                    className="flex-1 px-3 py-2 rounded-xl border border-slate-700 bg-[#0B0F17] text-white text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    data-testid="admin-set-new-password-btn"
+                    disabled={isSavingAdminResetPass}
+                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingAdminResetPass ? 'সেট হচ্ছে...' : 'নতুন পাসওয়ার্ড সেট করুন'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE RESTAURANT CONFIRMATION MODAL */}
+      {deletingRestaurant && (
+        <div
+          data-testid="admin-delete-restaurant-modal"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+        >
+          <div className="relative overflow-hidden bg-[#0E1524] text-white rounded-2xl shadow-2xl max-w-md w-full border border-rose-500/40 p-6 space-y-4">
+            <TopAccentBar variant="rose" />
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="w-10 h-10 rounded-xl bg-rose-950/70 border border-rose-600 text-rose-400 flex items-center justify-center shrink-0">
+                <ShieldAlert className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-white">অ্যাকাউন্ট স্থায়ীভাবে ডিলিট করুন</h3>
+                <p className="text-xs text-slate-400">এই কাজটি আর পূর্বাবস্থায় ফেরানো যাবে না</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-[#111927] border border-slate-800 text-xs space-y-1.5 relative z-10">
+              <div className="flex justify-between gap-2">
+                <span className="text-slate-400">রেস্তোরাঁ:</span>
+                <span className="font-bold text-white">{deletingRestaurant.name}</span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-slate-400">মালিক:</span>
+                <span className="text-slate-200">{deletingRestaurant.ownerName}</span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-slate-400">ইমেইল:</span>
+                <span className="font-mono text-slate-300">{deletingRestaurant.email}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-rose-200/90 leading-relaxed relative z-10">
+              সতর্কতা: ডিলিট করলে এই রেস্তোরাঁর সমস্ত মেনু, ক্যাটাগরি, বিল হিস্ট্রি, পেমেন্ট রেকর্ড ও সংশ্লিষ্ট বিজ্ঞপ্তি স্থায়ীভাবে মুছে যাবে।
+            </p>
+
+            <div className="flex gap-2 pt-1 relative z-10">
+              <button
+                type="button"
+                onClick={() => setDeletingRestaurant(null)}
+                disabled={isDeletingRestaurant}
+                className="w-1/2 py-2.5 rounded-xl border border-slate-700 bg-[#151E2E] text-slate-300 hover:text-white text-xs font-semibold cursor-pointer"
+              >
+                বাতিল
+              </button>
+              <button
+                type="button"
+                data-testid="admin-confirm-delete-restaurant-btn"
+                onClick={handleConfirmDeleteRestaurant}
+                disabled={isDeletingRestaurant}
+                className="w-1/2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md disabled:opacity-50 cursor-pointer"
+              >
+                {isDeletingRestaurant ? 'ডিলিট হচ্ছে...' : 'হ্যাঁ, ডিলিট করুন'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE ALL NOTIFICATIONS CONFIRMATION MODAL */}
+      {isConfirmDeleteAllNotifsOpen && (
+        <div
+          data-testid="admin-delete-all-notifs-modal"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+        >
+          <div className="relative overflow-hidden bg-[#0E1524] text-white rounded-2xl shadow-2xl max-w-md w-full border border-rose-500/40 p-6 space-y-4">
+            <TopAccentBar variant="rose" />
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="w-10 h-10 rounded-xl bg-rose-950/70 border border-rose-600 text-rose-400 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-white">সব বিজ্ঞপ্তি ডিলিট করবেন?</h3>
+                <p className="text-xs text-slate-400">
+                  মোট {formatBengaliNumber(notifications.length)}টি অ্যাডমিন নোটিফিকেশন মুছে যাবে
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 relative z-10">
+              <button
+                type="button"
+                onClick={() => setIsConfirmDeleteAllNotifsOpen(false)}
+                disabled={isDeletingNotifs}
+                className="w-1/2 py-2.5 rounded-xl border border-slate-700 bg-[#151E2E] text-slate-300 hover:text-white text-xs font-semibold cursor-pointer"
+              >
+                বাতিল
+              </button>
+              <button
+                type="button"
+                data-testid="admin-confirm-delete-all-notifs-btn"
+                onClick={handleConfirmDeleteAllNotifications}
+                disabled={isDeletingNotifs}
+                className="w-1/2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md disabled:opacity-50 cursor-pointer"
+              >
+                {isDeletingNotifs ? 'মুছে ফেলা হচ্ছে...' : 'সবগুলো ডিলিট করুন'}
+              </button>
+            </div>
           </div>
         </div>
       )}

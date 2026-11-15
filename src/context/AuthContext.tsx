@@ -118,13 +118,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const { updateRestaurant } = await import('../services/db');
         const newHash = await hashString(password);
+        const updatedAt = new Date().toISOString();
         await updateRestaurant(existing.id, {
           passwordHash: newHash,
+          passwordUpdatedAt: updatedAt,
           ownerUid: firebaseUid || existing.ownerUid || '',
         });
         finalRestaurant = {
           ...existing,
           passwordHash: newHash,
+          passwordUpdatedAt: updatedAt,
           ownerUid: firebaseUid || existing.ownerUid || '',
         };
       } catch {

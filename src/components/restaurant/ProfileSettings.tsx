@@ -102,6 +102,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
       const newHash = await hashString(newPassword);
       await updateRestaurant(restaurant.id, {
         passwordHash: newHash,
+        passwordUpdatedAt: new Date().toISOString(),
       });
 
       setPassMsg({ type: 'success', text: 'পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে!' });
