@@ -22,6 +22,7 @@ import {
   Eye,
   FileText,
   Sparkles,
+  Printer,
 } from 'lucide-react';
 import { ReceiptModal } from '../common/ReceiptModal';
 import { A4SalesReportModal } from './A4SalesReportModal';
@@ -37,6 +38,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ restaurant, onNavigate }) 
   const [bills, setBills] = useState<Bill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedReceipt, setSelectedReceipt] = useState<Bill | null>(null);
+  const [receiptViewMode, setReceiptViewMode] = useState<'receipt' | 'print-preview'>('receipt');
   const [isA4ReportOpen, setIsA4ReportOpen] = useState(false);
 
   const trialInfo = calculateTrialStatus(restaurant.trialEndsAt, restaurant.isLifetime);
@@ -355,13 +357,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ restaurant, onNavigate }) 
                       {formatTaka(b.grandTotal)}
                     </td>
                     <td className="px-6 py-3.5 text-center">
-                      <button
-                        onClick={() => setSelectedReceipt(b)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-orange-400 hover:bg-[#151E2E] transition-colors cursor-pointer"
-                        title="রসিদ দেখুন ও পিডিএফ ডাউনলোড করুন"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                      <div className="inline-flex items-center justify-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReceiptViewMode('print-preview');
+                            setSelectedReceipt(b);
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-orange-600/90 hover:bg-orange-500 text-white font-bold text-[11px] transition-colors cursor-pointer whitespace-nowrap"
+                          title="ইনভয়েস প্রিন্ট প্রিভিউ ও কাস্টমাইজ করুন"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>প্রিন্ট প্রিভিউ</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReceiptViewMode('receipt');
+                            setSelectedReceipt(b);
+                          }}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-orange-400 hover:bg-[#151E2E] transition-colors cursor-pointer"
+                          title="রসিদ দেখুন ও পিডিএফ ডাউনলোড করুন"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -371,11 +391,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ restaurant, onNavigate }) 
         )}
       </div>
 
-      {/* Selected Receipt Modal */}
+      {/* Selected Receipt / Print Preview Modal */}
       {selectedReceipt && (
         <ReceiptModal
           bill={selectedReceipt}
           restaurant={restaurant}
+          initialViewMode={receiptViewMode}
           onClose={() => setSelectedReceipt(null)}
           onNewBill={() => {
             setSelectedReceipt(null);

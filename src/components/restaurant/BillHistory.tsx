@@ -45,6 +45,7 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ restaurant, onNavigate
 
   // Modals state
   const [viewReceipt, setViewReceipt] = useState<Bill | null>(null);
+  const [receiptViewMode, setReceiptViewMode] = useState<'receipt' | 'print-preview'>('receipt');
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
   const [deletingBillId, setDeletingBillId] = useState<string | null>(null);
 
@@ -353,19 +354,27 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ restaurant, onNavigate
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {/* Dedicated Bengali Print Button */}
+                        {/* Dedicated Bengali Print Preview Button */}
                         <button
-                          onClick={() => setViewReceipt(bill)}
+                          type="button"
+                          onClick={() => {
+                            setReceiptViewMode('print-preview');
+                            setViewReceipt(bill);
+                          }}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-extrabold text-xs shadow-xs transition-all cursor-pointer hover:scale-105 active:scale-95 shrink-0"
-                          title="বাংলা ইনভয়েস প্রিন্ট ও PDF ডাউনলোড করুন"
+                          title="লেআউট কাস্টমাইজ করে প্রিন্ট প্রিভিউ ও PDF ডাউনলোড করুন"
                         >
                           <Printer className="w-3.5 h-3.5" />
-                          <span>প্রিন্ট</span>
+                          <span>প্রিন্ট প্রিভিউ</span>
                         </button>
                         <button
-                          onClick={() => setViewReceipt(bill)}
+                          type="button"
+                          onClick={() => {
+                            setReceiptViewMode('receipt');
+                            setViewReceipt(bill);
+                          }}
                           className="p-1.5 rounded-lg text-slate-300 hover:text-orange-400 hover:bg-orange-950/50 cursor-pointer"
-                          title="ইনভয়েস প্রিভিউ ও বিস্তারিত দেখুন"
+                          title="ক্যাশ মেমো দেখুন"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
@@ -571,11 +580,12 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ restaurant, onNavigate
         </div>
       )}
 
-      {/* View Receipt Modal */}
+      {/* View Receipt / Print Preview Modal */}
       {viewReceipt && (
         <ReceiptModal
           bill={viewReceipt}
           restaurant={restaurant}
+          initialViewMode={receiptViewMode}
           onClose={() => setViewReceipt(null)}
         />
       )}

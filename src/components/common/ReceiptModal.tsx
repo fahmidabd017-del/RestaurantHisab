@@ -2,13 +2,16 @@ import React, { useState } from 'react';
 import type { Bill, Restaurant } from '../../types';
 import { formatBengaliDate, formatBengaliNumber, formatTaka } from '../../utils/date';
 import { downloadReceiptPDF } from '../../utils/pdf';
-import { Download, X, CheckCircle2, Printer, PlusCircle } from 'lucide-react';
+import { Download, X, CheckCircle2, Printer, PlusCircle, SlidersHorizontal } from 'lucide-react';
+import { InvoicePrintPreviewModal } from './InvoicePrintPreviewModal';
+import { TopAccentBar } from './TopAccentBar';
 
 interface ReceiptModalProps {
   bill: Bill;
   restaurant: Restaurant;
   onClose: () => void;
   onNewBill?: () => void;
+  initialViewMode?: 'receipt' | 'print-preview';
 }
 
 export const ReceiptModal: React.FC<ReceiptModalProps> = ({
@@ -16,10 +19,25 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   restaurant,
   onClose,
   onNewBill,
+  initialViewMode = 'receipt',
 }) => {
+  const [invoiceViewMode, setInvoiceViewMode] = useState<'receipt' | 'print-preview'>(
+    initialViewMode
+  );
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [layoutMode, setLayoutMode] = useState<'A4' | 'COMPACT'>('A4');
+
+  if (invoiceViewMode === 'print-preview') {
+    return (
+      <InvoicePrintPreviewModal
+        bill={bill}
+        restaurant={restaurant}
+        onClose={onClose}
+        onBackToReceipt={() => setInvoiceViewMode('receipt')}
+      />
+    );
+  }
 
   const totalItemsQuantity = bill.items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -34,19 +52,19 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+    <div
+      data-testid="receipt-modal"
+      className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
+    >
       <div
-        className={`bg-[#0E1524] rounded-2xl shadow-2xl w-full overflow-hidden border border-slate-800 my-auto animate-in fade-in zoom-in-95 duration-200 ${
+        className={`relative overflow-hidden bg-[#0E1524] rounded-2xl shadow-2xl w-full border border-slate-800 my-auto ${
           layoutMode === 'A4' ? 'max-w-3xl' : 'max-w-md'
         }`}
       >
+        <TopAccentBar variant="emerald" />
         {/* Top Modal Header Bar (Dark App Chrome) */}
-        <div className="px-5 py-3.5 bg-[#111927] text-white border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+        <div className="px-5 py-3.5 bg-[#111927] text-white border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 relative z-10">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[#151E2E] border border-slate-700 text-white flex items-center justify-center shadow-xs">
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -260,27 +278,31 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         </div>
 
         {/* Action Buttons Bar (Dark Executive Chrome) */}
-        <div className="p-3.5 bg-[#111927] border-t border-slate-800 flex flex-wrap items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2">
+        <div className="p-3.5 bg-[#111927] border-t border-slate-800 flex flex-wrap items-center justify-between gap-2.5 relative z-10">
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={handleDownloadPDF}
-              disabled={isDownloading}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
+              type="button"
+              data-testid="open-print-preview-btn"
+              onClick={() => setInvoiceViewMode('print-preview')}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-orange-500/20 transition-all cursor-pointer"
             >
-              <Download className="w-4 h-4" />
-              <span>{isDownloading ? 'পিডিএফ তৈরি হচ্ছে...' : 'A4 PDF ডাউনলোড'}</span>
+              <Printer className="w-4 h-4" />
+              <SlidersHorizontal className="w-3.5 h-3.5 opacity-90" />
+              <span>প্রিন্ট প্রিভিউ ও কাস্টমাইজ</span>
             </button>
 
             <button
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#151E2E] hover:bg-[#1E293B] text-white font-bold text-xs sm:text-sm border border-slate-700 transition-colors cursor-pointer"
+              type="button"
+              onClick={handleDownloadPDF}
+              disabled={isDownloading}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
             >
-              <Printer className="w-4 h-4" />
-              <span>প্রিন্ট</span>
+              <Download className="w-4 h-4" />
+              <span>{isDownloading ? 'পিডিএফ তৈরি হচ্ছে...' : 'PDF ডাউনলোড'}</span>
             </button>
 
             {downloadSuccess && (
-              <span className="text-xs sm:text-sm text-emerald-400 font-bold animate-in fade-in flex items-center gap-1">
+              <span className="text-xs sm:text-sm text-emerald-400 font-bold flex items-center gap-1">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>ডাউনলোড সম্পন্ন!</span>
               </span>
