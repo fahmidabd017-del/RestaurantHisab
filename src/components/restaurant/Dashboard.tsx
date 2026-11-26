@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import type { Bill, Restaurant } from '../../types';
-import { getBills } from '../../services/db';
+import type { Bill, BillDraft, Restaurant } from '../../types';
+import { getBillDraft, getBills } from '../../services/db';
 import {
   calculateTrialStatus,
   formatBengaliNumber,
@@ -27,6 +27,8 @@ import {
 import { ReceiptModal } from '../common/ReceiptModal';
 import { A4SalesReportModal } from './A4SalesReportModal';
 import { DailySalesAnalyticsWidget } from './DailySalesAnalyticsWidget';
+import { DashboardSummaryCard } from './DashboardSummaryCard';
+import { computeDashboardSummary } from '../../utils/dashboardSummary';
 import { TopAccentBar } from '../common/TopAccentBar';
 
 interface DashboardProps {
@@ -36,6 +38,7 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ restaurant, onNavigate }) => {
   const [bills, setBills] = useState<Bill[]>([]);
+  const [draft, setDraft] = useState<BillDraft | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedReceipt, setSelectedReceipt] = useState<Bill | null>(null);
   const [receiptViewMode, setReceiptViewMode] = useState<'receipt' | 'print-preview'>('receipt');
@@ -48,8 +51,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ restaurant, onNavigate }) 
     let isMounted = true;
     async function loadData() {
       try {
-        const fetched = await getBills(restaurant.id);
-        if (isMounted) setBills(fetched);
+        const [fetchedBills, fetchedDraft] = await Promise.all([
+          getBills(restaurant.id),
+          getBillDraft(restaurant.id),
+        ]);
+        if (isMounted) {
+          setBills(fetchedBills);
+          setDraft(fetchedDraft);
+        }
       } catch (err) {
         console.error('Error loading bills for dashboard:', err);
       } finally {
@@ -62,14 +71,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ restaurant, onNavigate }) 
     };
   }, [restaurant.id]);
 
+  // Compute high-level summary metrics from existing bills & draft data
+  const summary = computeDashboardSummary({ bills, draft, todayStr });
+
   // Filter today's confirmed bills
   const todayBills = bills.filter(b => b.dateStr === todayStr && b.status === 'PAID');
 
   // Stat 1: Today's Total Sales
-  const todayTotalSales = todayBills.reduce((sum, b) => sum + (b.grandTotal || 0), 0);
+  const todayTotalSales = summary.todayTotalSales;
 
   // Stat 2: Today's Total Bills
-  const todayTotalBillsCount = todayBills.length;
+  const todayTotalBillsCount = summary.todayPaidBillsCount;
 
   // Stat 3: Today's Customer Count (distinct customer names)
   const distinctCustomers = new Set(
@@ -158,26 +170,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ restaurant, onNavigate }) 
         </div>
       </div>
 
-      {/* 3 PRIMARY DASHBOARD STATISTICS */}
+      {/* HIGH-LEVEL INSTANT OVERVIEW SUMMARY CARD */}
+      <DashboardSummaryCard
+        summary={summary}
+        todayStr={todayStr}
+        isLoading={isLoading}
+        onNavigate={onNavigate}
+      />
+
+      {/* 3 SECONDARY DASHBOARD BREAKDOWN CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Stat 1: Today's Total Sales */}
+        {/* Stat 1: Average Bill Value */}
         <div className="bg-[#0E1524] rounded-2xl p-6 border border-slate-800 shadow-xl relative overflow-hidden group">
           <TopAccentBar variant="amber" />
           <div className="flex items-center justify-between relative z-10">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              আজকের মোট বিক্রি (Today's Total Sales)
+              গড় অর্ডার মূল্য (Average Bill Value)
             </span>
             <div className="w-10 h-10 rounded-xl bg-[#151E2E] text-orange-400 flex items-center justify-center border border-slate-700">
               <TrendingUp className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-4 relative z-10">
-            <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-              {formatTaka(todayTotalSales)}
+            <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight font-mono tabular-nums">
+              {formatTaka(
+                todayTotalBillsCount > 0 ? Math.round(todayTotalSales / todayTotalBillsCount) : 0
+              )}
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-2 font-medium relative z-10">
-            আজকের সকল পরিশোধিত বিলের সর্বমোট যোগফল
+            আজকের প্রতিটি বিলের গড় বিক্রয় পরিমাণ
           </p>
         </div>
 
@@ -193,9 +215,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ restaurant, onNavigate }) 
             </div>
           </div>
           <div className="mt-4 relative z-10">
-            <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+            <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight font-mono tabular-nums">
               {formatBengaliNumber(todayTotalBillsCount)}{' '}
-              <span className="text-base font-normal text-slate-400">টি</span>
+              <span className="text-base font-normal text-slate-400 font-sans">টি</span>
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-2 font-medium relative z-10">
@@ -215,9 +237,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ restaurant, onNavigate }) 
             </div>
           </div>
           <div className="mt-4">
-            <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+            <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight font-mono tabular-nums">
               {formatBengaliNumber(distinctCustomers)}{' '}
-              <span className="text-base font-normal text-slate-400">জন</span>
+              <span className="text-base font-normal text-slate-400 font-sans">জন</span>
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-2 font-medium">
